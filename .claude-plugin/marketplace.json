@@ -1,0 +1,17 @@
+{
+  "name": "aro-ai-tools",
+  "metadata": {
+    "description": "AI Tools (skills, plugins, etc.) for ARO"
+  },
+  "owner": {
+    "name": "ARO Team"
+  },
+  "plugins": [
+    {
+      "name": "ops",
+      "description": "Operational skills for ARO",
+      "source": "./ops",
+      "strict": false
+    }
+  ]
+}
