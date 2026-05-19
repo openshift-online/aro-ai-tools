@@ -4,7 +4,7 @@
 
 ### Ops Plugin
 
-- Easy access to metrics and logs for ARO HCP (and Classic, WIP).
+- Easy access to metrics and logs for ARO HCP, plus Classic Kusto log discovery.
 - Compatible with all agents and OSes.
 - Zero-setup, just make sure you're `az`-logged into the appropriate tenant.
 
@@ -15,7 +15,7 @@
 /plugin install ops@aro-ai-tools
 ```
 
-Now reload plugins / restart agent and ask it, e.g. "which aro hcp kusto instances can I query".
+Now reload plugins / restart agent and ask it, e.g. "which ARO HCP Kusto instances can I query" or "which ARO Classic Kusto instances can I query".
 
 Note: **It's a very good idea to enable marketplace autoupgrade — agents tend not to do that**.
 

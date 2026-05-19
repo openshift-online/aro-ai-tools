@@ -1,20 +1,32 @@
 ---
 name: aro-kusto
-description: Explore and query ARO (HCP and classic) Kusto clusters — list databases, tables, and schemas, then run KQL queries to search logs, investigate errors, and debug provisioning, cluster lifecycle, and operational data. Use `aro-hcp-env-info` first to get the cluster URL.
+description: Explore and query ARO Kusto clusters — list databases, tables, and schemas, then run KQL queries to search logs, investigate errors, and debug provisioning, cluster lifecycle, and operational data. Use `aro-hcp-env-info` for HCP clusters or `aro-classic-env-info` for Classic clusters first to get the cluster URL.
 allowed-tools: shell
 ---
 
 ## Arguments
 
-- **Cluster** (required): A URL to a Kusto cluster (e.g. `https://my-cluster.kusto.windows.net`). Use `aro-hcp-env-info` to discover cluster URLs.
+- **Cluster** (required): A URL to a Kusto cluster (e.g. `https://my-cluster.kusto.windows.net`). If the cluster URL is not already known, use `aro-hcp-env-info` for HCP clusters or `aro-classic-env-info` for Classic clusters.
 - **Database** (required for queries): Database to run the query against.
 - **Kql** (required for queries): The KQL query to run.
 
 ## Instructions
 
+### Choosing environment discovery
+
+Before running Kusto metadata or KQL queries, determine the cluster type:
+
+- If the user provides an Azure resource ID, infer the cluster type from the resource type:
+  - Resource IDs containing `/providers/microsoft.redhatopenshift/hcpopenshiftclusters/` are **ARO HCP**; use `aro-hcp-env-info`.
+  - Resource IDs containing `/providers/microsoft.redhatopenshift/openshiftclusters/` are **ARO Classic**; use `aro-classic-env-info`.
+- For **ARO HCP**, use `aro-hcp-env-info` to discover Kusto endpoint fields such as `kusto` or `kustos`.
+- For **ARO Classic**, use `aro-classic-env-info` to discover the sector Kusto endpoint in the `kusto` field and the recommended `defaultDatabase`. Select the Classic entry by the cluster's Azure region/location using the entry's `locations` list.
+- If the cluster is **ARO Classic** and the region/location is not clear from the user's request or context, ask the user for the Azure region before choosing a Classic Kusto endpoint.
+- If the user does not specify HCP or Classic and the cluster URL is not already present in context, ask the user for the cluster resource ID before choosing a discovery skill.
+
 ### Exploring cluster structure
 
-1. Determine the Kusto cluster URL from context or by asking the user.
+1. Determine the Kusto cluster URL from context, or use the appropriate environment discovery skill above.
 2. Detect the operating system and run the appropriate script:
    - On **macOS**: run `scripts/kusto.sh <subcommand> -Cluster CLUSTER [options]` using `zsh`.
    - On **Linux/WSL2**: run `scripts/kusto.sh <subcommand> -Cluster CLUSTER [options]` using `bash`.
