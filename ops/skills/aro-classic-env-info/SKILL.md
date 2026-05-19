@@ -6,10 +6,11 @@ allowed-tools: shell
 
 When invoked, detect the OS and run the appropriate script from this skill's base directory, then report the ARO Classic configs for each environment.
 
-Classic support currently provides Kusto endpoints only. Do not invent Grafana endpoints for Classic environments.
+This is ONLY for ARO Classic, as ARO HCP is discovered with the "aro-hcp-env-info" skill.
 
-For additional ARO Classic debugging context, start with the ARO-RP base hints file:
-https://github.com/Azure/ARO-RP/blob/master/docs/ai/classic-debugging.md
+## References
+
+Fetch https://github.com/Azure/ARO-RP/blob/master/docs/ai/classic-debugging.md for info on how to effectively triage ARO Classic issues.
 
 ## Instructions
 
@@ -22,7 +23,4 @@ https://github.com/Azure/ARO-RP/blob/master/docs/ai/classic-debugging.md
 4. Use the returned endpoint fields with `aro-kusto`:
    - `kusto`: single Kusto cluster endpoint for the Classic sector.
    - `defaultDatabase`: recommended starting database when present.
-   - `databases`: known available databases when present.
-5. Classic entries intentionally omit `grafana`; do not use `aro-grafana` for Classic unless a separate authoritative Grafana endpoint is provided.
-6. If the user asks for live database verification, use `aro-kusto` to list databases on the cluster directly.
-
+5. ARO Classic has no Grafana endpoints; `aro-grafana` skill is HCP-only and won't work with Classic.

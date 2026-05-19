@@ -3,8 +3,8 @@ set -euo pipefail
 
 usage() {
     cat >&2 <<'EOF'
-Usage: query.sh -GrafanaUrl <url> -QueryJson <json>
-Example: query.sh -GrafanaUrl https://my-grafana.region.grafana.azure.com -QueryJson '{"queries":[...],"from":"now-1h","to":"now"}'
+Usage: gquery.sh -GrafanaUrl <url> -QueryJson <json>
+Example: gquery.sh -GrafanaUrl https://my-grafana.region.grafana.azure.com -QueryJson '{"queries":[...],"from":"now-1h","to":"now"}'
 EOF
     exit 1
 }

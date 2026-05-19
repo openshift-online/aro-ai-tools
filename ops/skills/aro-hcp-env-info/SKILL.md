@@ -1,11 +1,13 @@
 ---
 name: aro-hcp-env-info
-description: Discover ARO HCP kusto and grafana endpoints available to currently logged-in Azure user. Trigger only if work requires analyzing kusto or grafana. This must run before other kusto or grafana skills — it provides the cluster URLs and endpoints those skills need.
+description: Discover ARO HCP kusto and grafana endpoints available to currently logged-in Azure user. Trigger only if work requires analyzing kusto or grafana.
 allowed-tools: shell
 ---
 
 When invoked, detect the OS and run the appropriate script from this skill's base directory, then report the results clearly marking configs for each environment.
 Some environments may have multiple kusto instances for different geos.
+
+This is ONLY for ARO HCP, as ARO Classic is discovered with the "aro-classic-env-info" skill.
 
 ## Instructions
 

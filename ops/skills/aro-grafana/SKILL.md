@@ -1,15 +1,20 @@
 ---
 name: aro-grafana
-description: Explore datasources and run PromQL queries against ARO (HCP and classic) Grafana instances — discover datasource UIDs and available metrics, then query resource utilization, request latency, error rates, cluster health, tenant utilization, and more. Use `aro-hcp-env-info` first to get the Grafana URL.
+description: Explore datasources and run PromQL queries against ARO HCP Grafana instances — discover datasource UIDs and available metrics, then query resource utilization, request latency, error rates, cluster health, tenant utilization, and more. (Use `aro-hcp-env-info` first)
 allowed-tools: shell
 ---
 
-When invoked, discover datasources and metrics in, or execute queries against, an ARO Grafana instance.
+When invoked, discover datasources and metrics in, or execute queries against, an ARO HCP Grafana instance.
+ARO Classic has no Grafana endpoints; aro-grafana is HCP-only.
 
 ## Arguments
 
 - **grafana-url** (required): The base URL of the Grafana instance (e.g. `https://my-grafana.region.grafana.azure.com`). Use the `aro-hcp-env-info` skill to discover the Grafana URL for a given environment if not already known.
 - **query-json** (required for queries): A JSON string containing the full query body to send. The structure depends on the datasource type. See Query JSON example below.
+
+## References
+
+Fetch https://github.com/Azure/ARO-HCP/blob/main/docs/ai/grafana-debugging.md for info on how to effectively triage ARO HCP with grafana.
 
 ## Instructions
 

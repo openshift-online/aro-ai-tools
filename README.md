@@ -4,7 +4,7 @@
 
 ### Ops Plugin
 
-- Easy access to metrics and logs for ARO HCP, plus Classic Kusto log discovery.
+- Easy access to metrics (ARO HCP and Classic) and logs (just HCP).
 - Compatible with all agents and OSes.
 - Zero-setup, just make sure you're `az`-logged into the appropriate tenant.
 
@@ -17,7 +17,7 @@
 
 Now reload plugins / restart agent and ask it, e.g. "which ARO HCP Kusto instances can I query" or "which ARO Classic Kusto instances can I query".
 
-Note: **It's a very good idea to enable marketplace autoupgrade — agents tend not to do that**.
+Note: **If your client supports it, you should enable marketplace autoupgrade as it won't be on by default.**. (Claude Code has this feature, Copilot CLI doesn't.)
 
 ### Standalone Skills
 
