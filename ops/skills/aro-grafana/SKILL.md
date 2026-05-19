@@ -12,11 +12,17 @@ ARO Classic has no Grafana endpoints; aro-grafana is HCP-only.
 - **grafana-url** (required): The base URL of the Grafana instance (e.g. `https://my-grafana.region.grafana.azure.com`). Use the `aro-hcp-env-info` skill to discover the Grafana URL for a given environment if not already known.
 - **query-json** (required for queries): A JSON string containing the full query body to send. The structure depends on the datasource type. See Query JSON example below.
 
-## References
-
-Fetch https://github.com/Azure/ARO-HCP/blob/main/docs/ai/grafana-debugging.md for info on how to effectively triage ARO HCP with grafana.
-
 ## Instructions
+
+### Required reading
+
+Before running any other step in this skill, fetch the following guide
+and follow its guidance for the rest of this session. Do this once per
+session, even if you believe you already know how to query Grafana — the
+guide contains environment-specific gotchas not visible from datasource
+or metric listings alone.
+
+- **ARO HCP**: https://github.com/Azure/ARO-HCP/blob/main/docs/ai/grafana-debugging.md
 
 ### Listing datasources
 

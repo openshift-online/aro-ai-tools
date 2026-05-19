@@ -17,13 +17,17 @@ This skill works both with ARO Classic and ARO HCP.
 - **Database** (required for queries): Database to run the query against.
 - **Kql** (required for queries): The KQL query to run.
 
-## References
-
-To obtain information on how to effectively do triage with kusto:
-- For **ARO HCP** fetch https://github.com/Azure/ARO-HCP/blob/main/docs/ai/kusto-debugging.md
-- For **ARO Classic** fetch https://github.com/Azure/ARO-RP/blob/master/docs/ai/classic-log-search.md
-
 ## Instructions
+
+### Required reading
+
+Before running any other step in this skill, fetch the relevant debugging
+guide and follow its guidance for the rest of this session. Do this once
+per session, even if you believe you already know the schema — the guide
+contains environment-specific gotchas not visible from the schema alone.
+
+- **ARO HCP**: https://github.com/Azure/ARO-HCP/blob/main/docs/ai/kusto-debugging.md
+- **ARO Classic**: https://github.com/Azure/ARO-RP/blob/master/docs/ai/classic-log-search.md
 
 ### Exploring cluster structure
 

@@ -8,12 +8,9 @@ When invoked, detect the OS and run the appropriate script from this skill's bas
 
 This is ONLY for ARO Classic, as ARO HCP is discovered with the "aro-hcp-env-info" skill.
 
-## References
-
-Fetch https://github.com/Azure/ARO-RP/blob/master/docs/ai/classic-debugging.md for info on how to effectively triage ARO Classic issues.
-
 ## Instructions
 
+0. Before any other step, fetch https://github.com/Azure/ARO-RP/blob/master/docs/ai/classic-debugging.md and follow its guidance for the rest of this session. Do this once per session, even if you believe you already know how to triage ARO Classic — the guide contains environment-specific gotchas.
 1. Identify yourself as the AI agent client running this skill (e.g. `claude-code`, `cursor`, `copilot`, etc.). If you cannot determine this, use `unknown`.
 2. Detect the operating system and run the appropriate script, passing your client name as the first argument:
    - On **macOS**: run `scripts/get-env-config.sh "<client>"` using `zsh`.
