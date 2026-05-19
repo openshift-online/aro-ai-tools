@@ -19,23 +19,6 @@ function Expand-ClassicKustoEndpoint {
     return "https://$Value.kusto.windows.net"
 }
 
-function Set-FairfaxDefaults {
-    param([Parameter(Mandatory = $true)]$Entry)
-
-    if ($Entry.cloud -ne "fairfax") {
-        return
-    }
-    if ($Entry.PSObject.Properties.Name -notcontains "databaseSource") {
-        $Entry | Add-Member -NotePropertyName "databaseSource" -NotePropertyValue "assumed-from-public-prod"
-    }
-    if ($Entry.PSObject.Properties.Name -notcontains "authNotes") {
-        $Entry | Add-Member -NotePropertyName "authNotes" -NotePropertyValue @(
-            "SAW-only access documented",
-            "Use Kusto Explorer with FairFax (usgovcloudapi.net) cloud setting and dSTS-Federated security"
-        )
-    }
-}
-
 function Get-ClassicEnvironments {
     try {
         $tags = az group show `
@@ -79,9 +62,7 @@ function Get-ClassicEnvironments {
             $entry[$property.Name] = $property.Value
         }
 
-        $entryObject = [pscustomobject]$entry
-        Set-FairfaxDefaults -Entry $entryObject
-        $entries += $entryObject
+        $entries += [pscustomobject]$entry
     }
 
     if ($entries.Count -eq 0) {

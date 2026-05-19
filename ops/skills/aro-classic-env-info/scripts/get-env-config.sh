@@ -53,14 +53,7 @@ classic_environments=$(echo "$tags" | jq '
       ),
       defaultDatabase: ($cfg.defaultDatabase // "ARORPLogs"),
       source: "classic-config-tags"
-    } |
-    if .cloud == "fairfax" then
-      .databaseSource = (.databaseSource // "assumed-from-public-prod") |
-      .authNotes = (.authNotes // [
-        "SAW-only access documented",
-        "Use Kusto Explorer with FairFax (usgovcloudapi.net) cloud setting and dSTS-Federated security"
-      ])
-    else . end
+    }
   ) | sort_by(.id)')
 
 if [[ "$classic_environments" == "[]" ]]; then
