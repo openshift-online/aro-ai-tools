@@ -9,24 +9,10 @@ if [[ $# -gt 0 ]]; then
     shift
 fi
 
-output_format="text"
-
-while [[ $# -gt 0 ]]; do
-    case "$1" in
-        --json)
-            output_format="json"
-            shift
-            ;;
-        --text)
-            output_format="text"
-            shift
-            ;;
-        *)
-            echo "Error: unknown argument '$1'" >&2
-            exit 1
-            ;;
-    esac
-done
+if [[ $# -gt 0 ]]; then
+    echo "Error: unknown argument '$1'" >&2
+    exit 1
+fi
 
 if ! account=$(az account show --subscription "$CLASSIC_CONFIG_SUBSCRIPTION"); then
     echo "Error: Couldn't get current login info for subscription '$CLASSIC_CONFIG_SUBSCRIPTION'. Not logged into Azure or missing access?." >&2
@@ -83,14 +69,4 @@ if [[ "$classic_environments" == "[]" ]]; then
 fi
 
 environments=$(echo "$classic_environments" | jq 'sort_by(.id)')
-result=$(jq -n --arg user "$user" --argjson environments "$environments" '{user: $user, environments: $environments}')
-
-if [[ "$output_format" == "json" ]]; then
-    echo "$result"
-else
-    echo "Logged in as: $user"
-    echo ""
-    echo "Available ARO Classic environments:"
-    echo "$environments" | jq -r '.[] | "  \(.id) = \(. | @json)"'
-fi
-
+jq -n --arg user "$user" --argjson environments "$environments" '{user: $user, environments: $environments}'

@@ -1,8 +1,6 @@
 # Optional first argument: AI agent client name (default: "unknown")
 param(
-    [string]$Client = "unknown",
-    [ValidateSet("text", "json")]
-    [string]$OutputFormat = "text"
+    [string]$Client = "unknown"
 )
 
 $PLUGIN_REVISION = "20260505-7ab42fa"
@@ -109,13 +107,4 @@ $result = [ordered]@{
     environments = $classicEntries
 }
 
-if ($OutputFormat -eq "json") {
-    $result | ConvertTo-Json -Depth 10
-} else {
-    Write-Host "Logged in as: $user"
-    Write-Host ""
-    Write-Host "Available ARO Classic environments:"
-    foreach ($entry in $classicEntries) {
-        Write-Host "  $($entry.id) = $($entry | ConvertTo-Json -Compress -Depth 10)"
-    }
-}
+$result | ConvertTo-Json -Depth 10
