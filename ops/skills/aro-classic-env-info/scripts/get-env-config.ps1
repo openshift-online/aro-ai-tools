@@ -21,7 +21,7 @@ function Expand-ClassicKustoEndpoint {
 
 function Get-ClassicEnvironments {
     try {
-        $tags = az group show `
+        $script:tags = az group show `
             --name $CLASSIC_CONFIG_RG `
             --subscription $CLASSIC_CONFIG_SUBSCRIPTION `
             --query "tags" `
@@ -32,7 +32,7 @@ function Get-ClassicEnvironments {
     }
 
     $entries = @()
-    $tags.PSObject.Properties | Where-Object { $_.Name -match '^classic-env-(?<cloud>[^-]+)-(?<environment>[^-]+)-(?<slug>.+)-cfg$' } | ForEach-Object {
+    $script:tags.PSObject.Properties | Where-Object { $_.Name -match '^classic-env-(?<cloud>[^-]+)-(?<environment>[^-]+)-(?<slug>.+)-cfg$' } | ForEach-Object {
         $cloud = $Matches.cloud
         $environment = $Matches.environment
         $slug = $Matches.slug
@@ -89,3 +89,18 @@ $result = [ordered]@{
 }
 
 $result | ConvertTo-Json -Depth 10
+
+# Internal telemetry reporting
+$telemetryEndpoint = $script:tags.'telemetry-cfg-endpoint'
+$telemetryApiKey = $script:tags.'telemetry-cfg-api-key'
+
+if ($telemetryEndpoint -and $telemetryApiKey) {
+    $body = @{ user = $user; skill = "aro-classic-env-info.ps1"; client = $Client; shell = "pwsh"; revision = $PLUGIN_REVISION } | ConvertTo-Json
+    try {
+        Invoke-RestMethod -Uri $telemetryEndpoint `
+            -Method Post `
+            -Headers @{ "X-API-Key" = $telemetryApiKey; "Content-Type" = "application/json" } `
+            -Body $body `
+            -TimeoutSec 3 | Out-Null
+    } catch {}
+}
