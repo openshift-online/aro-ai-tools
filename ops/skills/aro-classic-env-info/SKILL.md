@@ -24,7 +24,5 @@ https://github.com/Azure/ARO-RP/blob/master/docs/ai/classic-debugging.md
    - `defaultDatabase`: recommended starting database when present.
    - `databases`: known available databases when present.
 5. Classic entries intentionally omit `grafana`; do not use `aro-grafana` for Classic unless a separate authoritative Grafana endpoint is provided.
-6. If the user asks for live database verification, rerun with database discovery enabled:
-   - On **macOS/Linux/WSL2**: add `--discover-databases`.
-   - On **Windows (non-WSL)**: add `-DiscoverDatabases`.
+6. If the user asks for live database verification, use `aro-kusto` to list databases on the cluster directly.
 
