@@ -53,6 +53,18 @@ contains environment-specific gotchas not visible from the schema alone.
 
 The raw JSON response from the Kusto REST API is returned as-is. If the result set is truncated due to `-MaxRecords` being hit, the response will contain an additional row entry with a `OneApiErrors` field indicating truncation.
 
+## Presenting kusto queries and generating links
+
+Whenever:
+- You present a kusto query to the user
+- The user explicitly asks for an ADX / Azure Data Explorer / Explorer link
+
+1. Detect the operating system and run the appropriate script:
+   - On **macOS**: run `scripts/klinks.sh -Cluster CLUSTER -Database DB -Kql QUERY` using `zsh`.
+   - On **Linux/WSL2**: run `scripts/klinks.sh -Cluster CLUSTER -Database DB -Kql QUERY` using `bash`.
+   - On **Windows (non-WSL)**: run `scripts/klinks.ps1 -Cluster CLUSTER -Database DB -Kql QUERY` using `pwsh`.
+2. Present the link to the user
+
 ## Reference
 
 ```
