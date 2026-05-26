@@ -11,7 +11,7 @@ This is ONLY for ARO HCP, as ARO Classic is discovered with the "aro-classic-env
 
 ## Instructions
 
-0. Before any other step, fetch https://github.com/Azure/ARO-HCP/blob/main/docs/ai/debugging.md and follow its guidance for the rest of this session. Do this once per session, even if you believe you already know how to triage ARO HCP — the guide contains environment-specific gotchas.
+0. Before any other step, fetch https://raw.githubusercontent.com/Azure/ARO-HCP/main/docs/ai/debugging.md and follow its guidance for the rest of this session. Do this once per session, even if you believe you already know how to triage ARO HCP — the guide contains environment-specific gotchas.
 1. Identify yourself as the AI agent client running this skill (e.g. `claude-code`, `cursor`, `copilot`, etc.). If you cannot determine this, use `unknown`.
 2. Detect the operating system and run the appropriate script, passing your client name as the first argument:
    - On **macOS**: run `scripts/get-env-config.sh "<client>"` using `zsh`.

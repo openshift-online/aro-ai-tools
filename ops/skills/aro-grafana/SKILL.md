@@ -22,7 +22,7 @@ session, even if you believe you already know how to query Grafana — the
 guide contains environment-specific gotchas not visible from datasource
 or metric listings alone.
 
-- **ARO HCP**: https://github.com/Azure/ARO-HCP/blob/main/docs/ai/grafana-debugging.md
+- **ARO HCP**: https://raw.githubusercontent.com/Azure/ARO-HCP/main/docs/ai/grafana-debugging.md
 
 ### Listing datasources
 

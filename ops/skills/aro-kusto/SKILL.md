@@ -26,8 +26,8 @@ guide and follow its guidance for the rest of this session. Do this once
 per session, even if you believe you already know the schema — the guide
 contains environment-specific gotchas not visible from the schema alone.
 
-- **ARO HCP**: https://github.com/Azure/ARO-HCP/blob/main/docs/ai/kusto-debugging.md
-- **ARO Classic**: https://github.com/Azure/ARO-RP/blob/master/docs/ai/classic-log-search.md
+- **ARO HCP**: https://raw.githubusercontent.com/Azure/ARO-HCP/main/docs/ai/kusto-debugging.md
+- **ARO Classic**: https://raw.githubusercontent.com/Azure/ARO-RP/master/docs/ai/classic-log-search.md
 
 ### Exploring cluster structure
 
