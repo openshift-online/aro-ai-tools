@@ -4,9 +4,10 @@
 
 ### Ops Plugin
 
-- Easy access to ARO HCP Grafana/Prometheus metrics; Kusto-based log investigation for ARO HCP and Classic where the relevant ops endpoints and permissions are available. Classic Grafana endpoints are not currently provided.
 - Compatible with all agents and OSes.
 - Zero-setup, just make sure you're `az`-logged into the appropriate tenant.
+- Provides easy access to ARO HCP Grafana/Prometheus metrics and Kusto logs for ARO HCP and Classic.
+  - (Not all Classic Kusto endpoints are accessible due to permissions; also there's no Grafana for Classic.)
 
 #### Installation
 
