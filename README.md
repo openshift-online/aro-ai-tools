@@ -4,7 +4,7 @@
 
 ### Ops Plugin
 
-- Easy access to metrics (ARO HCP and Classic) and logs (just HCP).
+- Easy access to ARO HCP Grafana/Prometheus metrics; Kusto-based log investigation for ARO HCP and Classic where the relevant ops endpoints and permissions are available. Classic Grafana endpoints are not currently provided.
 - Compatible with all agents and OSes.
 - Zero-setup, just make sure you're `az`-logged into the appropriate tenant.
 
@@ -59,5 +59,3 @@ The bar is considerably higher here.
 1. Your skill is being used by multiple people and forms a basis of a common workflow.
 2. Those people agree it should be available out of the box in a plugin.
 3. At this point you can send in a PR to move your skill into a plugin (or to create a new plugin if interested parties agree to use it).
-
-

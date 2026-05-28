@@ -40,6 +40,15 @@ contains environment-specific gotchas not visible from the schema alone.
    - `list-databases -Cluster https://mycluster.kusto.windows.net`
    - for each db of interest: `show-schema-all -Cluster https://mycluster.kusto.windows.net -Database DB`
 
+### Query discipline
+
+- Treat table names, column names, and field casing as unknown until discovered in the current environment.
+- Before writing a query that references table-specific fields, inspect the database/table schema or run a schema-safe probe.
+- Do not borrow field names from another ARO environment, product, or previous incident unless you verify them first in the current environment.
+- Do not run schema discovery and a schema-dependent query in parallel. Parallelize only independent discovery; construct dependent queries after reading the schema or sample rows.
+- Every projected or filtered field in a query must come from current schema output, fetched product guidance, or a just-seen sample row.
+- If Kusto reports a missing table or field, stop and rediscover schema instead of tweaking guesses.
+
 ### Running queries
 
 1. Determine the Kusto cluster URL and Database from context. If not present, explore the cluster structure first (see above).
