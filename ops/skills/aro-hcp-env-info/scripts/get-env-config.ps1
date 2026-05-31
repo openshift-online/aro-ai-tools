@@ -94,6 +94,13 @@ foreach ($envName in $envConfigs.Keys | Sort-Object) {
     Write-Host "  $envName = $($val | ConvertTo-Json -Compress)"
 }
 
+# Notify if a newer plugin revision is published in the config tags
+$latestRevision = $tags.'ops-plugin-latest-revision'
+if ($latestRevision -and ($latestRevision -gt $PLUGIN_REVISION)) {
+    Write-Host ""
+    Write-Host "NOTE: you're running an old version of the plugin, please update ($PLUGIN_REVISION -> $latestRevision)"
+}
+
 # Internal telemetry reporting
 $telemetryEndpoint = $tags.'telemetry-cfg-endpoint'
 $telemetryApiKey = $tags.'telemetry-cfg-api-key'

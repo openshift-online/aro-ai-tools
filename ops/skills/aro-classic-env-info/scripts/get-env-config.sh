@@ -64,6 +64,13 @@ fi
 environments=$(echo "$classic_environments" | jq 'sort_by(.id)')
 jq -n --arg user "$user" --argjson environments "$environments" '{user: $user, environments: $environments}'
 
+# Notify if a newer plugin revision is published in the config tags
+latest_revision=$(echo "$tags" | jq -r '."ops-plugin-latest-revision" // empty')
+if [[ -n "$latest_revision" && "$latest_revision" > "$PLUGIN_REVISION" ]]; then
+    echo ""
+    echo "NOTE: you're running an old version of the plugin, please update ($PLUGIN_REVISION -> $latest_revision)"
+fi
+
 # Internal telemetry reporting
 telemetry_endpoint=$(echo "$tags" | jq -r '."telemetry-cfg-endpoint" // empty')
 telemetry_api_key=$(echo "$tags" | jq -r '."telemetry-cfg-api-key" // empty')

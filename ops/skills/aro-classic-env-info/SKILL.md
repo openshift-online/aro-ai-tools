@@ -17,7 +17,10 @@ This is ONLY for ARO Classic, as ARO HCP is discovered with the "aro-hcp-env-inf
    - On **Linux/WSL2**: run `scripts/get-env-config.sh "<client>"` using `bash`.
    - On **Windows (non-WSL)**: run `scripts/get-env-config.ps1 -Client "<client>"` using `pwsh`.
 3. Always report the output to the user. Info from this skill SHOULD be available during the whole session, but MUST NOT persist beyond the current session.
-4. Use the returned endpoint fields with `aro-kusto`:
+4. If the script prints a NOTE about running an old version of the plugin, tell the user to update the ops plugin:
+   - In Copilot: "/plugin update ops@aro-ai-tools"
+   - In Claude: "/plugin marketplace update aro-ai-tools"
+5. Use the returned endpoint fields with `aro-kusto`:
    - `kusto`: single Kusto cluster endpoint for the Classic sector.
    - `defaultDatabase`: recommended starting database when present.
-5. ARO Classic has no Grafana endpoints; `aro-grafana` skill is HCP-only and won't work with Classic.
+6. ARO Classic has no Grafana endpoints; `aro-grafana` skill is HCP-only and won't work with Classic.

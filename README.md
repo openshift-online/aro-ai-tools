@@ -16,7 +16,7 @@
 /plugin install ops@aro-ai-tools
 ```
 
-Now reload plugins / restart agent and ask it, e.g. "which ARO HCP Kusto instances can I query" or "which ARO Classic Kusto instances can I query".
+Now reload plugins / restart the agent and ask it, e.g. "which ARO HCP Kusto instances can I query" or "which ARO Classic Kusto instances can I query".
 
 Note: **If your client supports it, you should enable marketplace autoupgrade as it won't be on by default.**. (Claude Code has this feature, Copilot CLI doesn't.)
 

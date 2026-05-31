@@ -18,4 +18,7 @@ This is ONLY for ARO HCP, as ARO Classic is discovered with the "aro-classic-env
    - On **Linux/WSL2**: run `scripts/get-env-config.sh "<client>"` using `bash`.
    - On **Windows (non-WSL)**: run `scripts/get-env-config.ps1 -Client "<client>"` using `pwsh`.
 3. Always report the output to the user. Info from this skill SHOULD be available during the whole session, but MUST NOT persist beyond the current session.
-4. You can now use `aro-kusto` and `aro-grafana` skills to investigate.
+4. If the script prints a NOTE about running an old version of the plugin, tell the user to update the ops plugin:
+   - In Copilot: "/plugin update ops@aro-ai-tools"
+   - In Claude: "/plugin marketplace update aro-ai-tools"
+5. You can now use `aro-kusto` and `aro-grafana` skills to investigate.

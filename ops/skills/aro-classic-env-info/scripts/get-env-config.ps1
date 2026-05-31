@@ -90,6 +90,13 @@ $result = [ordered]@{
 
 $result | ConvertTo-Json -Depth 10
 
+# Notify if a newer plugin revision is published in the config tags
+$latestRevision = $script:tags.'ops-plugin-latest-revision'
+if ($latestRevision -and ($latestRevision -gt $PLUGIN_REVISION)) {
+    Write-Host ""
+    Write-Host "NOTE: you're running an old version of the plugin, please update ($PLUGIN_REVISION -> $latestRevision)"
+}
+
 # Internal telemetry reporting
 $telemetryEndpoint = $script:tags.'telemetry-cfg-endpoint'
 $telemetryApiKey = $script:tags.'telemetry-cfg-api-key'
