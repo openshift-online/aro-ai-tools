@@ -1,0 +1,38 @@
+{
+  "name": "ops",
+  "version": "0.1.0",
+  "description": "Operational skills for Azure Red Hat OpenShift environments.",
+  "author": {
+    "name": "ARO Team",
+    "url": "https://github.com/openshift-online"
+  },
+  "homepage": "https://github.com/openshift-online/aro-ai-tools",
+  "repository": "https://github.com/openshift-online/aro-ai-tools",
+  "keywords": [
+    "aro",
+    "azure",
+    "openshift",
+    "grafana",
+    "kusto"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "ARO Ops",
+    "shortDescription": "Query ARO HCP and Classic operational data from Codex.",
+    "longDescription": "Access ARO HCP Grafana and Prometheus metrics plus ARO HCP and Classic Kusto data through bundled operational skills for Codex.",
+    "developerName": "ARO Team",
+    "category": "Engineering",
+    "capabilities": [
+      "Interactive",
+      "Read"
+    ],
+    "websiteURL": "https://github.com/openshift-online/aro-ai-tools",
+    "defaultPrompt": [
+      "Which ARO HCP Kusto instances can I query?",
+      "Which ARO Classic Kusto instances can I query?",
+      "List the Grafana datasources available for this ARO environment."
+    ],
+    "brandColor": "#EE0000",
+    "screenshots": []
+  }
+}
