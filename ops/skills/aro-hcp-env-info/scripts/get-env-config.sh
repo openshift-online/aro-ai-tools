@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-PLUGIN_REVISION="20260528-609ffbb"
+PLUGIN_REVISION="202606010112-b3df2c4"
 
 # Optional first argument: AI agent client name (default: "unknown")
 client="${1:-unknown}"
