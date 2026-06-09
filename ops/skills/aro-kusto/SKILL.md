@@ -21,13 +21,13 @@ This skill works both with ARO Classic and ARO HCP.
 
 ### Required reading
 
-Before running any other step in this skill, fetch the relevant debugging
+Before running any other step in this skill, read the relevant debugging
 guide and follow its guidance for the rest of this session. Do this once
 per session, even if you believe you already know the schema — the guide
 contains environment-specific gotchas not visible from the schema alone.
 
-- **ARO HCP**: https://raw.githubusercontent.com/Azure/ARO-HCP/main/docs/ai/kusto-debugging.md
-- **ARO Classic**: https://raw.githubusercontent.com/Azure/ARO-RP/master/docs/ai/classic-log-search.md
+- **ARO HCP**: `docs/ai/kusto-debugging.md` in ARO-HCP repo (if you don't have the repo checked out locally, fetch `https://raw.githubusercontent.com/Azure/ARO-HCP/main/docs/ai/kusto-debugging.md`)
+- **ARO Classic**: `docs/ai/classic-log-search.md` in ARO-RP repo (if you don't have the repo checked out locally, fetch `https://raw.githubusercontent.com/Azure/ARO-RP/master/docs/ai/classic-log-search.md`)
 
 ### Exploring cluster structure
 

@@ -16,13 +16,13 @@ ARO Classic has no Grafana endpoints; aro-grafana is HCP-only.
 
 ### Required reading
 
-Before running any other step in this skill, fetch the following guide
+Before running any other step in this skill, read the following guide
 and follow its guidance for the rest of this session. Do this once per
 session, even if you believe you already know how to query Grafana — the
 guide contains environment-specific gotchas not visible from datasource
 or metric listings alone.
 
-- **ARO HCP**: https://raw.githubusercontent.com/Azure/ARO-HCP/main/docs/ai/grafana-debugging.md
+- **ARO HCP**: `docs/ai/grafana-debugging.md` in ARO-HCP repo (if you don't have the repo checked out locally, fetch `https://raw.githubusercontent.com/Azure/ARO-HCP/main/docs/ai/grafana-debugging.md`)
 
 ### Listing datasources
 
