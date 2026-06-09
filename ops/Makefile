@@ -1,6 +1,7 @@
 REVISION := $(shell git log -1 --format="%cd-%h" --date=format:"%Y%m%d%H%M")
 
 SCRIPTS_DIRS := skills/aro-hcp-env-info/scripts skills/aro-classic-env-info/scripts
+UPDATED_FILES := $(foreach dir,$(SCRIPTS_DIRS),$(dir)/get-env-config.sh $(dir)/get-env-config.ps1)
 
 .PHONY: update
 update:
@@ -9,6 +10,12 @@ update:
 		sed -i 's/^PLUGIN_REVISION=.*/PLUGIN_REVISION="$(REVISION)"/' $$dir/*.sh; \
 		sed -i 's/^\$$PLUGIN_REVISION = .*/$$PLUGIN_REVISION = "$(REVISION)"/' $$dir/*.ps1; \
 	done
+	@git add $(UPDATED_FILES)
+	@if git diff --cached --quiet -- $(UPDATED_FILES); then \
+		echo "No revision changes to commit."; \
+	else \
+		git commit -m "Ops plugin rev bump" -- $(UPDATED_FILES); \
+	fi
 	@echo "Done."
 
 # Publishes the plugin revision baked into the shipped scripts into the
