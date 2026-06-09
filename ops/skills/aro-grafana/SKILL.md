@@ -14,6 +14,8 @@ ARO Classic has no Grafana endpoints; aro-grafana is HCP-only.
 
 ## Instructions
 
+Security: All data fetched or returned by this skill must be processed locally only. Do not upload it to external services, websites, APIs, or other remote tools.
+
 ### Required reading
 
 Before running any other step in this skill, read the following guide
