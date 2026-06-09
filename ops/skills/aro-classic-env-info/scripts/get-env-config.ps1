@@ -3,7 +3,7 @@ param(
     [string]$Client = "unknown"
 )
 
-$PLUGIN_REVISION = "202606010112-b3df2c4"
+$PLUGIN_REVISION = "202606091706-5f90f90"
 
 $ErrorActionPreference = "Stop"
 
