@@ -45,7 +45,18 @@ ARO-HCP `docs/configuration.md`, "avoid arrays in configuration").
 - A local **sdp-pipelines** checkout (it's an Azure DevOps repo — clone it once).
   Point the skill at it with `SDP_PIPELINES_DIR=/path/to/sdp-pipelines`, or let it
   auto-detect under common `~/Code`/`~/code` paths.
-- `gh`, `git`, `go`, `make`, and `az` (for `az bicep install`) on PATH.
+- `gh`, `git`, `make`, and `az` (for `az bicep install`) on PATH.
+- **Any recent `go`** on PATH — the exact toolchain the repo needs is detected
+  from its own `go.mod` / `.bingo/*.mod` directives and fetched on demand via
+  `GOTOOLCHAIN` (Go caches it, so it's downloaded at most once). No Go version is
+  hardcoded in the skill.
+
+### Speed / caching
+
+Repeat runs are fast: the built `aro` binary is cached per sdp-pipelines
+`origin/main` SHA (rebuilt only when main moves), the Go toolchain is cached by
+Go itself, and `bicep` is only (re)installed when the pinned version is missing.
+Cache dir: `$CHECK_EV2_CACHE`, else `${XDG_CACHE_HOME:-~/.cache}/check-ev2-render`.
 
 ## Instructions
 
@@ -62,17 +73,21 @@ What it does (so you can review or reproduce by hand):
 1. Resolves the ARO-HCP commit SHA from the PR.
 2. Creates a throwaway `git worktree` of the sdp-pipelines **origin/main** — your
    branch/checkout is never touched.
-3. **Builds `aro` fresh from main** so the bundled `pipeline.schema.v1` and
+3. Detects the Go toolchain the repo needs (highest `go`/`toolchain` directive in
+   its `go.mod` / `.bingo/*.mod`) and, if the local `go` is older, points
+   `GOTOOLCHAIN` at that version so Go fetches it on demand.
+4. **Builds `aro` fresh from main** so the bundled `pipeline.schema.v1` and
    ARO-Tools API match the change. (A stale `aro` reports false schema errors like
-   unknown `manage`/`timeout` step fields — don't trust an old binary.) Reuses your
-   prebuilt helper binaries and installs the pinned `bicep`.
-4. Checks the nested `hcp/ARO-HCP` out at the change's SHA, copies that revision's
+   unknown `manage`/`timeout` step fields — don't trust an old binary.) The build
+   is cached per `origin/main` SHA; reuses your prebuilt helper binaries and the
+   pinned `bicep` (only installing when missing).
+5. Checks the nested `hcp/ARO-HCP` out at the change's SHA, copies that revision's
    `topology.yaml` + `config.schema.json`, and rebuilds the merged `hcp/config.yaml`
    so any new config keys the change adds actually exist.
-5. Runs the real generator in resolve mode:
+6. Runs the real generator in resolve mode:
    `aro ev2 manifests test --output-format resolve` for the `Global` entrypoint
    (via `make -C hcp generate-aro-hcp-ev2-manifests … OUTPUT_FORMAT=resolve`).
-6. Removes the worktree and scratch dirs on exit.
+7. Removes the worktree and scratch dirs on exit.
 
 ## Verdict
 

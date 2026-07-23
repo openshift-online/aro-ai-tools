@@ -22,8 +22,14 @@
 #   * Non-destructive: all work happens in a throwaway `git worktree` of the
 #     sdp-pipelines origin/main; your checkout and branch are left untouched.
 #   * Builds `aro` fresh from origin/main so the pipeline schema / ARO-Tools API
-#     match the change under test (a stale `aro` gives false schema errors).
-#   * macOS + Linux compatible. Requires: gh, git, go, az (bicep), make.
+#     match the change under test (a stale `aro` gives false schema errors). The
+#     built binary is cached per origin/main SHA, so repeat runs skip the build.
+#   * No Go version is hardcoded: the required toolchain is read from the repo's
+#     own go.mod / .bingo/*.mod directives and fetched on demand via GOTOOLCHAIN
+#     (cached by Go; instant after the first download). Any recent Go bootstraps it.
+#   * macOS + Linux compatible. Requires: gh, git, go (any recent), az (bicep), make.
+#   * Speed knobs: reuses prebuilt helper binaries, a cached `aro`, and a cached
+#     bicep. Cache dir: $CHECK_EV2_CACHE or ${XDG_CACHE_HOME:-~/.cache}/check-ev2-render.
 #
 set -euo pipefail
 
@@ -42,6 +48,31 @@ done
 
 # Portable in-place sed (GNU vs BSD).
 sed_i() { if sed --version >/dev/null 2>&1; then sed -i "$@"; else local e="$1"; shift; sed -i '' "$e" "$@"; fi; }
+
+# Persistent cache for the built aro binary (speeds up repeat runs).
+CACHE="${CHECK_EV2_CACHE:-${XDG_CACHE_HOME:-$HOME/.cache}/check-ev2-render}"
+mkdir -p "$CACHE"
+
+# ver_ge A B -> true if dotted-numeric version A >= B.
+ver_ge() { [[ "$(printf '%s\n%s\n' "$2" "$1" | sort -V | tail -1)" == "$1" ]]; }
+
+# Ensure a Go toolchain new enough for the worktree + its bingo-managed tools.
+# Nothing is hardcoded: read the highest `go`/`toolchain` directive from the
+# repo's own module files and, if the local go is older, point GOTOOLCHAIN at
+# that exact version so Go fetches it on demand (cached; instant on later runs).
+ensure_go() {
+  command -v go >/dev/null || die "go not found on PATH"
+  local cur req
+  cur="$(go env GOVERSION 2>/dev/null | sed 's/^go//')"
+  req="$(grep -rhE '^(go|toolchain) ' "$1/tooling/go.mod" "$1"/.bingo/*.mod 2>/dev/null \
+         | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | sort -V | tail -1)"
+  if [[ -n "$req" ]] && ! ver_ge "$cur" "$req"; then
+    echo "go toolchain: local go$cur < required go$req — setting GOTOOLCHAIN=go${req}+auto (fetched once, then cached by Go)"
+    export GOTOOLCHAIN="go${req}+auto"
+  else
+    echo "go toolchain: local go$cur satisfies required go${req:-<none detected>}"
+  fi
+}
 
 # 1) Locate an existing sdp-pipelines checkout (it's an ADO repo; you must have one).
 SDP="${SDP_PIPELINES_DIR:-}"
@@ -78,9 +109,21 @@ trap cleanup EXIT
 git -C "$SDP" worktree add -q --detach "$WT" origin/main
 echo "worktree: $WT ($(git -C "$WT" rev-parse --short HEAD))"
 
-# 4) Build aro; reuse the user's prebuilt helper binaries when present.
-echo "building aro (first run downloads modules; a few minutes)…"
+# 4) Build aro (cached per origin/main SHA); reuse prebuilt helper binaries.
+ensure_go "$WT"
+MAIN_SHA="$(git -C "$WT" rev-parse HEAD)"
+ARO_CACHE="$CACHE/aro-${MAIN_SHA}"
+if [[ -x "$ARO_CACHE" ]]; then
+  echo "aro: reusing cached build for main@${MAIN_SHA:0:12}"
+  cp "$ARO_CACHE" "$WT/tooling/aro" && touch "$WT/tooling/aro"  # newer than sources -> make skips rebuild
+else
+  echo "building aro from main@${MAIN_SHA:0:12} (first run downloads modules; a few minutes)…"
+fi
 make -C "$WT/tooling" aro >/dev/null
+if [[ ! -x "$ARO_CACHE" ]]; then
+  cp "$WT/tooling/aro" "$ARO_CACHE"
+  ls -1t "$CACHE"/aro-* 2>/dev/null | tail -n +6 | xargs -r rm -f  # keep the 5 most recent
+fi
 for t in providerregistration/providerregistration secretsync/secretsync \
          helmdeploy/helmdeploy ev2registrar/ev2registrar \
          prowjobexecutor/prowjobexecutor grafanactl/grafanactl; do
@@ -89,11 +132,17 @@ for t in providerregistration/providerregistration secretsync/secretsync \
   fi
 done
 
-# 5) Install the pinned bicep (portable version parse; no `grep -P`).
+# 5) Install the pinned bicep (portable version parse; skip if already present).
 BV="$WT/tooling/pkg/ev2/manifests/generate/testdata/zz_fixture_TestA_BicepVersion.txt"
 if [[ -f "$BV" ]]; then
   ver=$(sed -n 's/.*Bicep CLI version \([0-9.]*\).*/\1/p' "$BV" | head -1)
-  [[ -n "$ver" ]] && az bicep install --version "v${ver}" >/dev/null 2>&1 || true
+  if [[ -n "$ver" ]]; then
+    if az bicep version 2>/dev/null | grep -qF "$ver"; then
+      echo "bicep: v$ver already installed"
+    else
+      az bicep install --version "v${ver}" >/dev/null 2>&1 || true
+    fi
+  fi
 fi
 
 # 6) Point the nested ARO-HCP at the change and regenerate config locally
