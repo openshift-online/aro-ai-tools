@@ -37,7 +37,7 @@ $ValidSubcommands = @("list-databases", "show-tables", "show-schema", "show-sche
 
 function Show-Help {
     $help = @"
-kusto.ps1 — Kusto cluster metadata (list databases, tables, schemas)
+kusto.ps1 - Kusto cluster metadata (list databases, tables, schemas)
 
 USAGE:
     kusto.ps1 <subcommand> -Cluster <url> [-Database <name>] [options]
@@ -65,7 +65,7 @@ EXAMPLES:
     .\kusto.ps1 show-schema -Cluster https://mycluster.region.kusto.windows.net -Database mydb -Table mytable
     .\kusto.ps1 show-schema-all -Cluster https://mycluster.region.kusto.windows.net -Database mydb
 "@
-    Write-Host $help
+    [Console]::Error.WriteLine($help)
     exit 1
 }
 

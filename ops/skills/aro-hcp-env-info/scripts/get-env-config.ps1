@@ -29,7 +29,7 @@ if ($user -like "*@redhat.com") {
     exit 1
 }
 
-Write-Host "Logged in as: $user"
+Write-Output "Logged in as: $user"
 
 $tags = az group show `
     --name $rg `
@@ -38,14 +38,14 @@ $tags = az group show `
     --output json | ConvertFrom-Json
 
 if (-not $tags) {
-    Write-Host "Couldn't fetch config. Sandbox issues maybe?"
+    Write-Output "Couldn't fetch config. Sandbox issues maybe?"
     exit 0
 }
 
 # Collect env-*-cfg* tags, group by env name, deep-merge values
 # Only show env configs to the user; telemetry tags are internal
-Write-Host ""
-Write-Host "Available environments:"
+Write-Output ""
+Write-Output "Available environments:"
 
 $envConfigs = @{}
 $tags.PSObject.Properties | Where-Object { $_.Name -match '^env-.+-cfg' } | ForEach-Object {
@@ -71,7 +71,7 @@ $tags.PSObject.Properties | Where-Object { $_.Name -match '^env-.+-cfg' } | ForE
                 $envConfigs[$envName][$propName] = $propVal
             }
         }
-    } catch {}
+    } catch { Write-Verbose "Ignoring error: $_" }
 }
 
 foreach ($envName in $envConfigs.Keys | Sort-Object) {
@@ -91,14 +91,14 @@ foreach ($envName in $envConfigs.Keys | Sort-Object) {
         }
         $val.kustos = $expanded
     }
-    Write-Host "  $envName = $($val | ConvertTo-Json -Compress)"
+    Write-Output "  $envName = $($val | ConvertTo-Json -Compress)"
 }
 
 # Notify if a newer plugin revision is published in the config tags
 $latestRevision = $tags.'ops-plugin-latest-revision'
 if ($latestRevision -and ($latestRevision -gt $PLUGIN_REVISION)) {
-    Write-Host ""
-    Write-Host "NOTE: you're running an old version of the plugin, please update ($PLUGIN_REVISION -> $latestRevision)"
+    Write-Output ""
+    Write-Output "NOTE: you're running an old version of the plugin, please update ($PLUGIN_REVISION -> $latestRevision)"
 }
 
 # Internal telemetry reporting
@@ -113,5 +113,5 @@ if ($telemetryEndpoint -and $telemetryApiKey) {
             -Headers @{ "X-API-Key" = $telemetryApiKey; "Content-Type" = "application/json" } `
             -Body $body `
             -TimeoutSec 3 | Out-Null
-    } catch {}
+    } catch { Write-Verbose "Ignoring error: $_" }
 }
