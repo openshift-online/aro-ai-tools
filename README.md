@@ -60,3 +60,25 @@ The bar is considerably higher here.
 1. Your skill is being used by multiple people and forms a basis of a common workflow.
 2. Those people agree it should be available out of the box in a plugin.
 3. At this point you can send in a PR to move your skill into a plugin (or to create a new plugin if interested parties agree to use it).
+
+## Continuous Integration
+
+This repository is onboarded onto [OpenShift CI (Prow)](https://docs.ci.openshift.org/). Configuration lives in [openshift/release](https://github.com/openshift/release) under `ci-operator/config/openshift-online/aro-ai-tools/` and `core-services/prow/02_config/openshift-online/aro-ai-tools/`.
+
+### Presubmit checks
+
+Every pull request automatically runs:
+
+- **`ci/prow/shellcheck`** — [ShellCheck](https://www.shellcheck.net/) over all `*.sh` scripts.
+- **`ci/prow/psscriptanalyzer`** — [PSScriptAnalyzer](https://learn.microsoft.com/en-us/powershell/utility-modules/psscriptanalyzer/overview) (Warning and Error severity) over all `*.ps1` scripts.
+
+Re-run a check by commenting `/test shellcheck`, `/test psscriptanalyzer`, or `/test all`.
+
+### Merge flow
+
+Merges are handled by Prow (Tide), not by pressing the GitHub merge button. A PR merges once it has both labels:
+
+- `lgtm` — added when a reviewer comments `/lgtm`.
+- `approved` — added when an [OWNERS](./OWNERS) approver comments `/approve`.
+
+Approvers and reviewers are defined in [`OWNERS`](./OWNERS) / [`OWNERS_ALIASES`](./OWNERS_ALIASES), inherited from the ARO-HCP Service Lifecycle SRE team. Use `/hold` to block a merge and `/hold cancel` to release it.
