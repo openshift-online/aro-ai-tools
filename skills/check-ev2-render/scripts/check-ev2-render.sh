@@ -99,6 +99,7 @@ echo "ARO-HCP commit: $SHA  (target: ${ENTITY}=Microsoft.Azure.ARO.HCP.${SG}, re
 # 3) Throwaway worktree of a fresh origin/main (matched toolchain).
 git -C "$SDP" fetch -q origin main
 TMP="$(mktemp -d)"; WT="$TMP/sdp-ev2repro"
+# shellcheck disable=SC2317,SC2329  # cleanup() runs indirectly via 'trap cleanup EXIT'
 cleanup() {
   rm -rf "$WT/_scratch" "$WT/_output" 2>/dev/null || true
   git -C "$SDP" worktree remove --force "$WT" 2>/dev/null || true
@@ -122,6 +123,7 @@ fi
 make -C "$WT/tooling" aro >/dev/null
 if [[ ! -x "$ARO_CACHE" ]]; then
   cp "$WT/tooling/aro" "$ARO_CACHE"
+  # shellcheck disable=SC2012  # ls -t sorts by mtime; cache filenames are controlled (aro-<sha>)
   ls -1t "$CACHE"/aro-* 2>/dev/null | tail -n +6 | xargs -r rm -f  # keep the 5 most recent
 fi
 for t in providerregistration/providerregistration secretsync/secretsync \
