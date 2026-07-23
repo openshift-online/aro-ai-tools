@@ -21,7 +21,7 @@ $ErrorActionPreference = "Stop"
 
 function Show-Help {
     $help = @"
-klinks.ps1 — Generate an Azure Data Explorer (ADX) web link for a KQL query
+klinks.ps1 - Generate an Azure Data Explorer (ADX) web link for a KQL query
 
 USAGE:
     klinks.ps1 -Cluster <url> -Database <name> -Kql <kql_string>
@@ -35,7 +35,7 @@ REQUIRED:
 EXAMPLES:
     .\klinks.ps1 -Cluster https://mycluster.region.kusto.windows.net -Database mydb -Kql "MyTable | take 10"
 "@
-    Write-Host $help
+    [Console]::Error.WriteLine($help)
     exit 1
 }
 

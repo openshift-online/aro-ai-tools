@@ -19,7 +19,7 @@ function Expand-ClassicKustoEndpoint {
     return "https://$Value.kusto.windows.net"
 }
 
-function Get-ClassicEnvironments {
+function Get-ClassicEnvironment {
     try {
         $script:tags = az group show `
             --name $CLASSIC_CONFIG_RG `
@@ -81,7 +81,7 @@ if ($LASTEXITCODE -ne 0) {
 $account = $azJson | ConvertFrom-Json
 $user = $account.user.name
 
-$classicEntries = @(Get-ClassicEnvironments | Sort-Object id)
+$classicEntries = @(Get-ClassicEnvironment | Sort-Object id)
 
 $result = [ordered]@{
     user         = $user
@@ -93,8 +93,8 @@ $result | ConvertTo-Json -Depth 10
 # Notify if a newer plugin revision is published in the config tags
 $latestRevision = $script:tags.'ops-plugin-latest-revision'
 if ($latestRevision -and ($latestRevision -gt $PLUGIN_REVISION)) {
-    Write-Host ""
-    Write-Host "NOTE: you're running an old version of the plugin, please update ($PLUGIN_REVISION -> $latestRevision)"
+    [Console]::Error.WriteLine("")
+    [Console]::Error.WriteLine("NOTE: you're running an old version of the plugin, please update ($PLUGIN_REVISION -> $latestRevision)")
 }
 
 # Internal telemetry reporting
@@ -109,5 +109,5 @@ if ($telemetryEndpoint -and $telemetryApiKey) {
             -Headers @{ "X-API-Key" = $telemetryApiKey; "Content-Type" = "application/json" } `
             -Body $body `
             -TimeoutSec 3 | Out-Null
-    } catch {}
+    } catch { Write-Verbose "Ignoring error: $_" }
 }

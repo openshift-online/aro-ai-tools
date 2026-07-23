@@ -29,7 +29,7 @@ $ErrorActionPreference = "Stop"
 
 function Show-Help {
     $help = @"
-kquery.ps1 — Run arbitrary KQL queries against Kusto
+kquery.ps1 - Run arbitrary KQL queries against Kusto
 
 USAGE:
     kquery.ps1 -Cluster <url> -Database <name> -Kql <kql_string> [options]
@@ -47,7 +47,7 @@ EXAMPLES:
     .\kquery.ps1 -Cluster https://mycluster.region.kusto.windows.net -Database mydb -Kql "MyTable | take 10"
     .\kquery.ps1 -Cluster https://mycluster.region.kusto.windows.net -Database mydb -Kql "MyTable | summarize count() by col" -MaxRecords 0
 "@
-    Write-Host $help
+    [Console]::Error.WriteLine($help)
     exit 1
 }
 
