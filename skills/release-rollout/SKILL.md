@@ -63,7 +63,6 @@ main (INT) --> release/hcp/public/stg (Stage) --> release/hcp/public/prod (Prod)
 | Item | Location |
 |------|----------|
 | sdp-pipelines repo | `https://dev.azure.com/msazure/AzureRedHatOpenShift/_git/sdp-pipelines` |
-| Local clone | `/home/avollmer/Repos/azure-repos/sdp-pipelines` |
 | EV2 approval portal (SAW) | `https://approval.azengsys.com/` |
 | Release Dashboard | `https://release-dashboard.tools.hcpsvc.osadev.cloud/` |
 | CI Health Dashboard | `https://cihealth.tools.hcpsvc.osadev.cloud/` |
@@ -220,8 +219,8 @@ If a rollout introduced a regression to Stage or Prod:
 ### What's deployed where?
 
 ```bash
-# Check what's on the stage release branch
-cd /home/avollmer/Repos/azure-repos/sdp-pipelines
+# Check what's on the stage release branch (from your local sdp-pipelines clone)
+cd <sdp-pipelines-clone>
 git fetch origin
 git log --oneline -10 origin/release/hcp/public/stg
 
