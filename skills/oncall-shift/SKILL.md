@@ -562,6 +562,13 @@ By participating in the oncall rotation, associates agree to:
 - **Comp day**: Working a Recharge Day or Company-Funded Day entitles the
   associate to one Comp Day, which must be taken within two weeks.
 
+## Reference: Policy Documents
+
+| Document | URL |
+|----------|-----|
+| JIRA Hygiene Policy | https://docs.google.com/document/d/1jLwHt00p5EyW4hYIUlDleQGh0K96UfZrmcp-BJ3BmaM/ |
+| Service Component Escalation Paths | https://docs.google.com/document/d/1fqH__2cv0GU4oiUYAnhl08x61b7CuDbVi3OkC-J58LA/edit?tab=t.0 |
+
 ## Reference: MCP Tools Used
 
 | Tool | Purpose |
