@@ -478,8 +478,8 @@ All monitoring should be done via the CI Health Dashboard:
 - **Timeout patterns**: Patterns like `CreateHCPClusterAndWait`,
   `context deadline exceeded`, etc. are generic timeouts hiding distinct
   root causes. Occurrence count alone is meaningless. Timeouts require
-  deeper analysis from Kusto logs using `hcpctl snapshot analyze` (in
-  `tooling/hcpctl`) against the run's snapshot.
+  deeper analysis from Kusto logs using `hcpctl snapshot analyze`
+  against the run's snapshot.
 
 ## Escalation
 
