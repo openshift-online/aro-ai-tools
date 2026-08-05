@@ -286,9 +286,12 @@ order:
 | ADO PR ID (in sdp-pipelines context) | `https://dev.azure.com/msazure/AzureRedHatOpenShift/_git/sdp-pipelines/pullrequest/NNNN` |
 
 **Rules:**
-- If a reference is already a full URL, preserve it as-is.
+- Never paste bare URLs. Always wrap in the appropriate link syntax.
 - In the full markdown version, use standard markdown links: `[text](url)`.
-- In the Slack version, use Slack mrkdwn links: `<url|text>`.
+- In the Slack version, use Slack mrkdwn links: `<url|text>`. The `text`
+  should be a short 1-4 word label (e.g. `EV2`, `Slack`, `PR #1234`,
+  `Stage rollout`). **NEVER** use markdown-style `[text](url)` in Slack
+  output -- Slack does not render it as a clickable link.
 - When context is ambiguous (e.g. a bare number could be a build ID or
   an incident), prefer the interpretation that matches the surrounding
   sentence. If still unclear, leave it as plain text.
@@ -344,30 +347,70 @@ shift has spare time. Monitoring items, nice-to-have PRs, cleanup tasks.>
 ##### Slack Version
 
 Present the Slack version inside a code fence so the user can copy-paste
-it directly into the Slack handover thread. Keep it *condensed* — max 5
-one-line bullets per category, no elaboration. Use Slack mrkdwn formatting
-(not markdown): `*bold*` for bold, no `#` headings, no tables. Do NOT
-include section header emoji or section header names — just bullets
-grouped with blank lines between categories. Use a :memo: emoji only for
-the details link at the end of highlights.
+each section into the Slack Workflow handover form fields. The user has
+"Format messages with markup" enabled in Slack, so use Slack mrkdwn
+syntax throughout.
+
+**Critical formatting rules for Slack mrkdwn (NOT markdown):**
+- Bold: `*bold*` (single asterisk). NEVER use `**bold**`.
+- Links: `<https://example.com|label>` (angle brackets, pipe, label).
+  NEVER use `[label](url)` -- that renders as raw broken text in Slack.
+- When a URL was provided by the user, wrap it in `<url|short label>`
+  where the label is 2-4 words describing the link (e.g. `EV2`, `Slack`,
+  `PR #1234`, `Stage rollout`).
+- No `#` headings -- Slack does not render them.
+- No tables -- use bullets only.
+- No code fences inside the output (the whole output is already in a
+  code fence for copy-paste).
+- Emoji section headers: use one emoji per section, then `*bold title*`.
+- Max 5 one-line bullets per category, no sub-bullets or elaboration.
+- Each bullet starts with `• ` (bullet character, not dash).
+- Categories separated by blank lines.
 
 Use this template:
 
 ```
-*Handover <FROM_SHIFT> → <TO_SHIFT> — <DATE>*
+:sparkles: *Highlights*
+• <one-line highlight or "Nothing noteworthy">
 
-• <highlight or "Nothing noteworthy">
-:memo: Shift log at `<file path>` (local)
+:tada: *High Priority tasks*
+• <item — status — <url|short label>>
 
-• <high priority item — status — link>
+:rotating_light: *High Priority IcM incidents*
+• <incident title — sev — status — <IcM url|IcM NNNN>>
+_or_ • No active IcM incidents
 
-• <IcM incident or "No active incidents">
+:cat-loaf: *Low Priority Stuff*
+• <item or "Nothing pending">
 
-• <low priority item or "Nothing pending">
+:five-stars: *Rate your shift* <emoji> <one-word rating>
 ```
 
-Each category is separated by a blank line. All detail, context, and
-chat excerpts belong in the shift log only.
+**Example** (realistic output):
+
+```
+:sparkles: *Highlights*
+• No written handover from EMEA today — verbal only, EMEA IC was in architecture meeting
+• Multiple prod E2E regionalGating failures; stage kusto-lookup failure in uksouth
+
+:tada: *High Priority tasks*
+• *P0 fix needs prod rollout* — stage completed, prod not started, due tomorrow — <https://ra.ev2portal.azure.net/#/rollouts/Prod/b8e9ef87/e165291f|Stage rollout>
+• Prod E2E regionalGating brazilsouth & eastus2 — retried, monitor — <https://ra.ev2portal.azure.net/#/rollouts/prod/b8e9ef87/5069861a|EV2>
+• Prod E2E regionalGating uksouth — failed, retry or investigate — <https://ra.ev2portal.azure.net/#/rollouts/Prod/b8e9ef87/276aac58|EV2>
+• Stage kusto-lookup uksouth — failed — <https://ra.ev2portal.azure.net/#/rollouts/prod/b8e9ef87/8564eb48|EV2> <https://redhat-internal.slack.com/archives/C0AJLG31P39/p1785949730210579|Slack>
+
+:rotating_light: *High Priority IcM incidents*
+• No active IcM incidents
+
+:cat-loaf: *Low Priority Stuff*
+• Dev merge queue and IcM sweep not completed this shift — meeting load + rollout activity
+
+:five-stars: *Rate your shift* :cat-agree: Not bad
+```
+
+Notice: every URL is wrapped in `<url|label>` with a short label. Long
+EV2 URLs get a 1-2 word label like `EV2`, `Stage rollout`, or
+`Prod rollout`. Slack thread URLs get `Slack`. Never paste a bare URL.
 
 #### Step 3: Post Handover
 
