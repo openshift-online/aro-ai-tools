@@ -287,11 +287,9 @@ order:
 
 **Rules:**
 - Never paste bare URLs. Always wrap in the appropriate link syntax.
-- In the full markdown version, use standard markdown links: `[text](url)`.
-- In the Slack version, use Slack mrkdwn links: `<url|text>`. The `text`
-  should be a short 1-4 word label (e.g. `EV2`, `Slack`, `PR #1234`,
-  `Stage rollout`). **NEVER** use markdown-style `[text](url)` in Slack
-  output -- Slack does not render it as a clickable link.
+- Use standard markdown links `[text](url)` in both the full markdown
+  version and the Slack version. Slack renders markdown links as
+  clickable text when pasted into a regular message.
 - When context is ambiguous (e.g. a bare number could be a build ID or
   an incident), prefer the interpretation that matches the surrounding
   sentence. If still unclear, leave it as plain text.
@@ -346,77 +344,85 @@ shift has spare time. Monitoring items, nice-to-have PRs, cleanup tasks.>
 
 ##### Slack Version
 
-Present the Slack version inside a code fence so the user can copy-paste
-each section into the Slack Workflow handover form fields. The user has
-"Format messages with markup" enabled in Slack, so use Slack mrkdwn
-syntax throughout.
+The Slack handover is posted as a *regular Slack message* (not through
+the Slack Workflow). The agent produces a complete, self-contained
+message with section headers and emojis that mirrors the Workflow
+format. The user copies the entire message and pastes it into the
+handover thread.
 
-**Critical formatting rules for Slack mrkdwn (NOT markdown):**
+**Delivery method**: Write the Slack version to `/tmp/handover-slack.txt`
+*and* display it on screen. Both outputs must be identical. The user
+can copy from whichever is more convenient.
+
+**Prerequisite**: The user must have "Format messages with markup"
+enabled in Slack settings (Preferences > Advanced). Without this,
+markdown links render as raw text.
+
+**Critical formatting rules for the Slack version:**
 - Bold: `*bold*` (single asterisk). NEVER use `**bold**`.
-- Links: `<https://example.com|label>` (angle brackets, pipe, label).
-  NEVER use `[label](url)` -- that renders as raw broken text in Slack.
-- When a URL was provided by the user, wrap it in `<url|short label>`
-  where the label is 2-4 words describing the link (e.g. `EV2`, `Slack`,
-  `PR #1234`, `Stage rollout`).
-- No `#` headings -- Slack does not render them.
-- No tables -- use bullets only.
-- No code fences inside the output (the whole output is already in a
-  code fence for copy-paste).
-- Emoji section headers: use one emoji per section, then `*bold title*`.
-- Max 5 one-line bullets per category, no sub-bullets or elaboration.
+- Links: `[label](url)` (standard markdown). Use short labels (2-4
+  words) for long URLs: `EV2`, `Stage rollout`, `Slack`, `Prow`.
+  NEVER use `<url|label>` — the pipe character gets corrupted.
+  NEVER paste bare URLs — always wrap in `[label](url)`.
+- No `#` headings — Slack does not render them.
+- No tables — use bullets only.
+- Max 5 one-line bullets per section, no sub-bullets or elaboration.
 - Each bullet starts with `• ` (bullet character, not dash).
-- Categories separated by blank lines.
 
-Use this template:
+**File template** (`/tmp/handover-slack.txt`):
 
 ```
+ARO HCP SL Handover <FROM_SHIFT> to <TO_SHIFT>
+
 :sparkles: *Highlights*
 • <one-line highlight or "Nothing noteworthy">
 
-:tada: *High Priority tasks*
-• <item — status — <url|short label>>
+:thisisfine-3012: *High Priority tasks*
+• <item — status — [short label](url)>
 
-:rotating_light: *High Priority IcM incidents*
-• <incident title — sev — status — <IcM url|IcM NNNN>>
-_or_ • No active IcM incidents
+:fire_engine: *High Priority IcM incidents*
+• <incident or "No active IcM incidents">
 
-:cat-loaf: *Low Priority Stuff*
+:shrug: *Low Priority Stuff*
 • <item or "Nothing pending">
 
-:five-stars: *Rate your shift* <emoji> <one-word rating>
+:star: *Rate your shift*
+<1-5 star emoji> <one-line summary>
 ```
 
-**Example** (realistic output):
+**Example file content:**
 
 ```
+ARO HCP SL Handover NASA East to NASA West
+
 :sparkles: *Highlights*
 • No written handover from EMEA today — verbal only, EMEA IC was in architecture meeting
 • Multiple prod E2E regionalGating failures; stage kusto-lookup failure in uksouth
 
-:tada: *High Priority tasks*
-• *P0 fix needs prod rollout* — stage completed, prod not started, due tomorrow — <https://ra.ev2portal.azure.net/#/rollouts/Prod/b8e9ef87/e165291f|Stage rollout>
-• Prod E2E regionalGating brazilsouth & eastus2 — retried, monitor — <https://ra.ev2portal.azure.net/#/rollouts/prod/b8e9ef87/5069861a|EV2>
-• Prod E2E regionalGating uksouth — failed, retry or investigate — <https://ra.ev2portal.azure.net/#/rollouts/Prod/b8e9ef87/276aac58|EV2>
-• Stage kusto-lookup uksouth — failed — <https://ra.ev2portal.azure.net/#/rollouts/prod/b8e9ef87/8564eb48|EV2> <https://redhat-internal.slack.com/archives/C0AJLG31P39/p1785949730210579|Slack>
+:thisisfine-3012: *High Priority tasks*
+• *P0 fix needs prod rollout* — stage completed, prod not started, due tomorrow — [Stage rollout](https://ra.ev2portal.azure.net/#/rollouts/Prod/.../e165291f)
+• Prod E2E regionalGating brazilsouth & eastus2 — retried, monitor — [EV2](https://ra.ev2portal.azure.net/#/rollouts/prod/.../5069861a)
+• Prod E2E regionalGating uksouth — failed, retry or investigate — [EV2](https://ra.ev2portal.azure.net/#/rollouts/Prod/.../276aac58)
 
-:rotating_light: *High Priority IcM incidents*
+:fire_engine: *High Priority IcM incidents*
 • No active IcM incidents
 
-:cat-loaf: *Low Priority Stuff*
-• Dev merge queue and IcM sweep not completed this shift — meeting load + rollout activity
+:shrug: *Low Priority Stuff*
+• Dev merge queue and IcM sweep not completed — meeting load + rollout activity
 
-:five-stars: *Rate your shift* :cat-agree: Not bad
+:star: *Rate your shift*
+:star::star::star: Busy with rollouts and E2E failures but no incidents
 ```
 
-Notice: every URL is wrapped in `<url|label>` with a short label. Long
-EV2 URLs get a 1-2 word label like `EV2`, `Stage rollout`, or
-`Prod rollout`. Slack thread URLs get `Slack`. Never paste a bare URL.
+After writing the file, tell the user: *"Handover written to
+`/tmp/handover-slack.txt` and displayed above — copy from whichever
+is easier."*
 
 #### Step 3: Post Handover
 
-Append the **full markdown version** to the shift log file. Present
-the **Slack version** to the user in a code fence for copy-paste into
-the Slack handover thread.
+Append the **full markdown version** to the shift log file. Write
+the **Slack version** to `/tmp/handover-slack.txt` and display it
+on screen.
 
 ### Mandatory Handover Process
 
@@ -426,12 +432,17 @@ and the handover has been proactively sought and confirmed.
 
 #### 15 Minutes Before Shift End
 
-1. **Proactively contact the in-coming IC** via the automatically-created
+1. **Prepare handover notes** — generate both the full markdown version
+   (appended to the shift log) and the Slack version (written to
+   `/tmp/handover-slack.txt` and displayed on screen) *before* reaching
+   out to the incoming IC. This ensures the handover is ready to post
+   immediately.
+2. **Proactively contact the in-coming IC** via the automatically-created
    Slack handover thread. Tag the incoming IC and confirm they are alert
    and ready.
-2. **Complete the handover message** in the Slack thread using the handover
-   template above.
-3. For every unresolved issue, provide:
+3. **Post the handover message** in the Slack thread using the handover
+   notes prepared in step 1.
+4. For every unresolved issue, provide:
    - **Shift log path** with status and next steps clearly documented
    - **PR links** (if applicable)
    - **Slack thread links** to relevant conversations
