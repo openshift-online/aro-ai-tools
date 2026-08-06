@@ -103,11 +103,12 @@ The Primary is the Interrupt Collector (IC). Responsibilities:
    provided.
 
 4. **Prioritization order is fixed:**
-   1. Rollouts (active, failed, blocked)
-   2. Time-sensitive / important items (CCOA exceptions, approvals, deadlines)
-   3. Dev merge queue health (unblock Tide batches)
-   4. Check alerts (proactive problem detection)
-   5. Routine monitoring (IcM, Prow, dashboards, quality call)
+   1. Situational awareness (quality call notes, handover ticket dashboard)
+   2. Rollouts (active, failed, blocked)
+   3. Time-sensitive / important items (CCOA exceptions, approvals, deadlines)
+   4. Dev merge queue health (unblock Tide batches)
+   5. Check alerts (proactive problem detection)
+   6. Routine monitoring (IcM, Prow, Azure Pipelines, dashboards)
 
 5. **IcM alerts have a hard SLA.** All Sev 2 and below critical alerts must
    be acknowledged within 30 minutes. This is not optional.
@@ -172,9 +173,16 @@ separate list.
 4. **🟡 Alerts** — Check monitoring alerts for proactive problem detection.
    Always present even if handover does not mention it.
 5. **🟢 Routine Monitoring** — IcM portal sweep, oncall dashboard ticket
-   triage, Prow status, quality call, handover dashboard. Slot handover
-   awareness items and incidents here. Always present even if handover does
-   not mention it.
+   triage, Prow status, quality call, handover ticket dashboard. Slot
+   handover awareness items and incidents here. Always present even if
+   handover does not mention it.
+
+   Key links for routine monitoring:
+   - [IcM Portal (active incidents)](https://portal.microsofticm.com/imp/v3/overview/main?q=ACTIVE&st=predefined_2)
+   - [Prow Status (ARO-HCP jobs)](https://prow.ci.openshift.org/?repo=Azure%2FARO-HCP)
+   - [Azure Pipelines Rollout Status](https://dev.azure.com/msazure/AzureRedHatOpenShift/_build?pipelineNameFilter=Entrypoint*HCP)
+   - [Handover Ticket Dashboard (active JIRAs)](https://redhat.atlassian.net/jira/software/c/projects/AROSLSRE/boards/11820)
+   - [Quality Call Notes](https://docs.google.com/document/d/1dX_CsGpS0hsU0lETbsRgIaLFrQIg-frH-7qzJN8d13A/edit?tab=t.0)
 
 If the handover notes contain items that already match a standing category
 (e.g. an IcM incident is routine monitoring, a PR deadline is
@@ -187,14 +195,16 @@ must have at least one concrete action, even if it is the standing default:
 ```
 ### Suggested Sequence
 
-1. <Most urgent rollout action or "No active rollouts — verify none pending">
-2. <Next rollout action>
-3. <Time-sensitive item or "No time-sensitive items">
-4. Check Dev merge queue health (CI Health Dashboard)
-5. Check monitoring alerts
-6. <Verify pipeline/automation>
-7. <Babysit PR>
-8. Routine monitoring: IcM portal sweep, oncall dashboard triage, Prow status
+1. Review latest Quality Call notes for situational awareness
+2. Check handover ticket dashboard for active JIRAs requiring attention
+3. <Most urgent rollout action or "No active rollouts — verify none pending">
+4. <Next rollout action>
+5. <Time-sensitive item or "No time-sensitive items">
+6. Check Dev merge queue health (CI Health Dashboard)
+7. Check monitoring alerts
+8. <Verify pipeline/automation>
+9. <Babysit PR>
+10. Routine monitoring: IcM portal sweep, Prow status, Azure Pipelines rollout status
 ```
 
 #### Step 3: Create Shift Log
@@ -624,6 +634,12 @@ By participating in the oncall rotation, associates agree to:
 |----------|-----|
 | JIRA Hygiene Policy | https://docs.google.com/document/d/1jLwHt00p5EyW4hYIUlDleQGh0K96UfZrmcp-BJ3BmaM/ |
 | Service Component Escalation Paths | https://docs.google.com/document/d/1fqH__2cv0GU4oiUYAnhl08x61b7CuDbVi3OkC-J58LA/edit?tab=t.0 |
+| On-Call Policy & Operations | https://docs.google.com/document/d/1fqH__2cv0GU4oiUYAnhl08x61b7CuDbVi3OkC-J58LA/edit?tab=t.0#heading=h.x4lbuvw3431e |
+| Quality Call Notes | https://docs.google.com/document/d/1dX_CsGpS0hsU0lETbsRgIaLFrQIg-frH-7qzJN8d13A/edit?tab=t.0 |
+| Handover Ticket Dashboard | https://redhat.atlassian.net/jira/software/c/projects/AROSLSRE/boards/11820 |
+| Prow Status (ARO-HCP) | https://prow.ci.openshift.org/?repo=Azure%2FARO-HCP |
+| Azure Pipelines Rollout Status | https://dev.azure.com/msazure/AzureRedHatOpenShift/_build?pipelineNameFilter=Entrypoint*HCP |
+| IcM Portal (active incidents) | https://portal.microsofticm.com/imp/v3/overview/main?q=ACTIVE&st=predefined_2 |
 
 ## Reference: MCP Tools Used
 
