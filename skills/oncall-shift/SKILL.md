@@ -508,6 +508,8 @@ batches.
 
 **CI Health Dashboard**: https://cihealth.tools.hcpsvc.osadev.cloud/
 
+**E2E Failure Analysis (AI)**: https://releases.dev.aro.azure-test.net/tests/hcp
+
 All monitoring should be done via the CI Health Dashboard:
 
 ### Day-to-day workflow
