@@ -65,6 +65,7 @@ main (INT) --> release/hcp/public/stg (Stage) --> release/hcp/public/prod (Prod)
 | sdp-pipelines repo | `https://dev.azure.com/msazure/AzureRedHatOpenShift/_git/sdp-pipelines` |
 | EV2 approval portal (SAW) | `https://approval.azengsys.com/` |
 | Release Dashboard | `https://release-dashboard.tools.hcpsvc.osadev.cloud/` |
+| E2E Failure Analysis (AI) | `https://releases.dev.aro.azure-test.net/tests/hcp` |
 | CI Health Dashboard | `https://cihealth.tools.hcpsvc.osadev.cloud/` |
 | ARO-HCP GitHub repo | `https://github.com/Azure/ARO-HCP` |
 
