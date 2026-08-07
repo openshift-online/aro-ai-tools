@@ -9,7 +9,10 @@
 # renders Helm values.yaml / *.bicepparam / pipeline.yaml with EV2 "dunder"
 # placeholders (every config ref becomes the literal string `__path.to.value__`).
 # The classic failure is `{{ range .some.array }}` in a values.yaml: fine with a
-# real array, but "range can't iterate over __some.array__" under resolve.
+# real array, but "range can't iterate over __some.array__" under resolve. A more
+# subtle failure is `{{ if .optionalValue }}`: every dunder placeholder is a
+# non-empty string, so the branch is selected before Ev2 substitutes the real
+# (possibly empty or false) value.
 #
 # Usage:
 #   check-ev2-render.sh <ARO-HCP-PR-number | commit-SHA> [--service-group SG]
@@ -74,6 +77,68 @@ ensure_go() {
   fi
 }
 
+# Reject newly added config-dependent template logic in files preprocessed
+# before Ev2 substitutes real configuration values. Direct interpolation is
+# safe; control flow and semantic functions are not because they evaluate the
+# dunder placeholder rather than the eventual value.
+check_semantic_template_hazards() {
+  local repo="$1" base="$2" head="$3" hazards="$TMP/template-semantic-hazards"
+
+  git -C "$repo" diff --unified=0 "$base" "$head" -- \
+    '*.bicepparam' '*/pipeline.yaml' '*/values.yaml' |
+    awk '
+      function relevant(path) {
+        return path ~ /(^|\/)(pipeline|values)\.yaml$/ || path ~ /\.bicepparam$/
+      }
+      function unsafe(line) {
+        return line ~ /\{\{/ &&
+          line ~ /\.[A-Za-z_][A-Za-z0-9_.]*/ &&
+          line ~ /(^|[^A-Za-z])(if|with|range|eq|ne|lt|le|gt|ge|and|or|not|default|required|empty|coalesce|ternary|len|index)([^A-Za-z]|$)/
+      }
+      /^\+\+\+ b\// {
+        path = substr($0, 7)
+        active = relevant(path)
+        next
+      }
+      /^@@ / {
+        hunk = $0
+        sub(/^.* \+/, "", hunk)
+        sub(/ .*/, "", hunk)
+        split(hunk, parts, ",")
+        new_line = parts[1]
+        next
+      }
+      active && /^\+/ && !/^\+\+\+/ {
+        line = substr($0, 2)
+        if (unsafe(line)) {
+          printf "%s:%d: %s\n", path, new_line, line
+        }
+        new_line++
+        next
+      }
+      active && /^ / {
+        new_line++
+      }
+    ' >"$hazards"
+
+  if [[ ! -s "$hazards" ]]; then
+    echo "template semantics: no new config-dependent control flow detected"
+    return 0
+  fi
+
+  echo
+  echo "──────────────────────────────────────────────────────────────"
+  echo "FAIL ❌  Unsafe config-dependent template logic was added:"
+  sed 's/^/  /' "$hazards"
+  echo
+  echo "Resolve mode evaluates config references as non-empty __path__ strings"
+  echo "before Ev2 substitutes their real values. Use direct interpolation only;"
+  echo "move fallback, branching, iteration, and comparisons to a stage that runs"
+  echo "after Ev2 substitution (for example, the Helm chart template)."
+  echo "──────────────────────────────────────────────────────────────"
+  return 1
+}
+
 # 1) Locate an existing sdp-pipelines checkout (it's an ADO repo; you must have one).
 SDP="${SDP_PIPELINES_DIR:-}"
 if [[ -z "$SDP" ]]; then
@@ -88,10 +153,15 @@ echo "sdp-pipelines: $SDP"
 
 # 2) Resolve the ARO-HCP commit SHA (accept a PR number or a raw SHA).
 if [[ "$PR_REF" =~ ^[0-9]+$ ]]; then
-  SHA=$(gh pr view "$PR_REF" --repo Azure/ARO-HCP --json mergeCommit,headRefOid \
-        -q '.mergeCommit.oid // .headRefOid') || die "could not resolve PR #$PR_REF via gh"
+  read -r SHA DIFF_BASE DIFF_HEAD < <(
+    gh pr view "$PR_REF" --repo Azure/ARO-HCP \
+      --json mergeCommit,headRefOid,baseRefOid \
+      --jq '[(.mergeCommit.oid // .headRefOid), .baseRefOid, .headRefOid] | @tsv'
+  ) || die "could not resolve PR #$PR_REF via gh"
 else
   SHA="$PR_REF"
+  DIFF_BASE=""
+  DIFF_HEAD="$SHA"
 fi
 SHORT="${SHA:0:12}"
 echo "ARO-HCP commit: $SHA  (target: ${ENTITY}=Microsoft.Azure.ARO.HCP.${SG}, resolve mode)"
@@ -152,8 +222,15 @@ fi
 REV_DIR="$WT/hcp/ARO-HCP"
 mkdir -p "$REV_DIR"
 ( cd "$REV_DIR" && git init -q \
-  && git fetch -q --depth=1 https://github.com/Azure/ARO-HCP.git "$SHA" \
+  && git fetch -q --depth=2 https://github.com/Azure/ARO-HCP.git "$SHA" \
   && git checkout -q FETCH_HEAD )
+if [[ -n "$DIFF_BASE" ]]; then
+  git -C "$REV_DIR" fetch -q --depth=1 https://github.com/Azure/ARO-HCP.git "$DIFF_BASE" "$DIFF_HEAD"
+else
+  DIFF_BASE="$(git -C "$REV_DIR" rev-parse "${SHA}^")"
+fi
+check_semantic_template_hazards "$REV_DIR" "$DIFF_BASE" "$DIFF_HEAD" || exit 1
+
 sed_i "s/^ARO_HCP_REPO_REVISION=.*/ARO_HCP_REPO_REVISION=${SHORT}/" "$WT/hcp/Revision.mk"
 cp "$REV_DIR/topology.yaml"           "$WT/hcp/aro-hcp-topology.yaml"
 cp "$REV_DIR/config/config.schema.json" "$WT/hcp/config.schema.json"
@@ -177,7 +254,9 @@ echo "$OUT" | grep -vaE '401|InvalidAuthenticationInfo|failed to upload release 
 echo
 echo "──────────────────────────────────────────────────────────────"
 if [[ $RC -eq 0 ]]; then
-  echo "PASS ✅  Renders in EV2 resolve mode — should pass sdp-pipelines EV2 generation."
+  echo "PASS ✅  No new known placeholder-semantics hazards were found, and"
+  echo "        the change renders in EV2 resolve mode."
+  echo "        This does not emulate deployment-time Ev2 substitution."
 else
   echo "FAIL ❌  EV2 manifest generation failed. This change will break the"
   echo "        sdp-pipelines 'Generate Ev2 Manifests' step. Offending detail:"
