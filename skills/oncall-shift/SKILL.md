@@ -303,6 +303,12 @@ order:
 - When context is ambiguous (e.g. a bare number could be a build ID or
   an incident), prefer the interpretation that matches the surrounding
   sentence. If still unclear, leave it as plain text.
+- **Rollout items must include EV2 links.** For every rollout mentioned
+  in the handover (INT, Stage, Prod), fetch the EV2 portal URL from the
+  Release Dashboard (`https://releases.dev.aro.azure-test.net/releases`)
+  and include it as an `[EV2](url)` link. The EV2 portal requires
+  Microsoft corp auth but the links are still useful for the incoming IC
+  to open from their SAW/VM.
 
 ##### Full Markdown Version
 
@@ -376,7 +382,10 @@ markdown links render as raw text.
   NEVER paste bare URLs — always wrap in `[label](url)`.
 - No `#` headings — Slack does not render them.
 - No tables — use bullets only.
-- Max 5 one-line bullets per section, no sub-bullets or elaboration.
+- Max 5 one-line bullets per section.
+- Sub-bullets are allowed (indented with 2 spaces) for essential
+  additional details on a parent bullet (e.g. cancellation reason,
+  Slack thread link, next action). Keep sub-bullets to one line each.
 - Each bullet starts with `• ` (bullet character, not dash).
 
 **File template** (`/tmp/handover-slack.txt`):
@@ -386,9 +395,11 @@ ARO HCP SL Handover <FROM_SHIFT> to <TO_SHIFT>
 
 :sparkles: *Highlights*
 • <one-line highlight or "Nothing noteworthy">
+  • <optional sub-bullet with supporting detail>
 
 :thisisfine-3012: *High Priority tasks*
 • <item — status — [short label](url)>
+  • <optional sub-bullet: reason, Slack link, or next action>
 
 :fire_engine: *High Priority IcM incidents*
 • <incident or "No active IcM incidents">
@@ -406,13 +417,13 @@ ARO HCP SL Handover <FROM_SHIFT> to <TO_SHIFT>
 ARO HCP SL Handover NASA East to NASA West
 
 :sparkles: *Highlights*
-• No written handover from EMEA today — verbal only, EMEA IC was in architecture meeting
 • Multiple prod E2E regionalGating failures; stage kusto-lookup failure in uksouth
 
 :thisisfine-3012: *High Priority tasks*
 • *P0 fix needs prod rollout* — stage completed, prod not started, due tomorrow — [Stage rollout](https://ra.ev2portal.azure.net/#/rollouts/Prod/.../e165291f)
 • Prod E2E regionalGating brazilsouth & eastus2 — retried, monitor — [EV2](https://ra.ev2portal.azure.net/#/rollouts/prod/.../5069861a)
 • Prod E2E regionalGating uksouth — failed, retry or investigate — [EV2](https://ra.ev2portal.azure.net/#/rollouts/Prod/.../276aac58)
+  • Failure is infra-related, not code — [Slack](https://redhat-internal.slack.com/archives/...)
 
 :fire_engine: *High Priority IcM incidents*
 • No active IcM incidents
@@ -423,6 +434,37 @@ ARO HCP SL Handover NASA East to NASA West
 :star: *Rate your shift*
 :star::star::star: Busy with rollouts and E2E failures but no incidents
 ```
+
+**Content filtering — what goes in handover vs shift log only:**
+
+The handover message is for the *incoming shift*. Only include items
+they need to act on or be aware of to do their job. Everything else
+stays in the shift log for internal documentation.
+
+| Belongs in handover | Stays in shift log only |
+|---------------------|------------------------|
+| Active/blocked/failed rollouts needing action | Completed rollouts with no follow-up |
+| IcM incidents requiring continued monitoring | Late handover from prior shift (process issue, not actionable) |
+| Tickets the next shift must follow up on | Tickets with `oncall` label that are fully resolved or tracked on the oncall dashboard |
+| CI health issues that are *abnormal* (week-over-week regression) | PR reviews done during shift (unless PR is rollout-blocking) |
+| Region rollouts only if they are actively failing/blocking | Region rollouts with no activity (not actionable) |
+
+**JIRA ticket filtering**: If a ticket has the `oncall` label, it
+already appears on the oncall dashboard. Only include it in the
+handover if the incoming shift needs to take *specific action* beyond
+what the dashboard shows. Don't list tickets just because they were
+touched during the shift.
+
+**CI health context**: When reporting CI success rates, compare against
+recent history (week-over-week) to distinguish normal baseline from
+genuine regression. A 48% DEV success rate is not noteworthy if it has
+been ~50% for weeks. Only flag it if there is a meaningful drop or a
+new dominant failure pattern.
+
+**Process issues stay internal**: Late handovers, missing documentation
+from prior shifts, and similar process observations are valuable for
+management analysis but do not help the incoming IC. Record them in the
+shift log under "Lesson Learned" but omit from handover notes.
 
 After writing the file, tell the user: *"Handover written to
 `/tmp/handover-slack.txt` and displayed above — copy from whichever
