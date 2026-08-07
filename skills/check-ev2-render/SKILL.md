@@ -28,9 +28,17 @@ step RP.HypershiftOperator.management.deploy: ... failed to preprocess
 __hypershift.metricsSet.extraHCPMetrics__
 ```
 
-Rule of thumb: don't `range`/index/use arrays or complex types on config
-references that get pulled into pipeline / values / bicepparam files (see
-ARO-HCP `docs/configuration.md`, "avoid arrays in configuration").
+A second failure mode is semantic rather than syntactic. For example,
+`{{ if .optionalClientId }}` always takes the true branch in resolve mode
+because `__optionalClientId__` is a non-empty string. Ev2 can later replace it
+with an empty value, but the template branch is not reevaluated.
+
+Rule of thumb: config references in pipeline / values / bicepparam files may be
+directly interpolated, but must not drive `if`, `with`, `range`, comparisons,
+fallback functions, indexing, or other semantic template operations. Move that
+logic to a stage that runs after Ev2 substitution, such as the Helm chart
+template. Also see ARO-HCP `docs/configuration.md`, "avoid arrays in
+configuration".
 
 ## Arguments
 
@@ -84,19 +92,24 @@ What it does (so you can review or reproduce by hand):
 5. Checks the nested `hcp/ARO-HCP` out at the change's SHA, copies that revision's
    `topology.yaml` + `config.schema.json`, and rebuilds the merged `hcp/config.yaml`
    so any new config keys the change adds actually exist.
-6. Runs the real generator in resolve mode:
+6. Scans changed `values.yaml`, `pipeline.yaml`, and `*.bicepparam` lines for
+   config-dependent control flow and semantic functions that would evaluate
+   dunder placeholders instead of real values.
+7. Runs the real generator in resolve mode:
    `aro ev2 manifests test --output-format resolve` for the `Global` entrypoint
    (via `make -C hcp generate-aro-hcp-ev2-manifests … OUTPUT_FORMAT=resolve`).
-7. Removes the worktree and scratch dirs on exit.
+8. Removes the worktree and scratch dirs on exit.
 
 ## Verdict
 
-- **PASS / exit 0** — the change renders in resolve mode; it should pass the
-  sdp-pipelines "Generate Ev2 Manifests" step.
+- **PASS / exit 0** — no new known placeholder-semantics hazards were found and
+  the change renders in resolve mode. This does not fully emulate
+  deployment-time Ev2 substitution.
 - **FAIL / non-zero** — look for `failed to preprocess …`, `range can't iterate
-  over __…__`, `can't evaluate …`, or any template-execution / missing-config
-  error. Report the failing step (e.g. `RP.HypershiftOperator.management.deploy`),
-  the file, the line, and the offending config path.
+  over __…__`, `can't evaluate …`, an `Unsafe config-dependent template logic`
+  report, or any template-execution / missing-config error. Report the failing
+  step (e.g. `RP.HypershiftOperator.management.deploy`), the file, the line, and
+  the offending config path.
 - **IGNORE** `401 InvalidAuthenticationInfo` / "failed to upload release metadata"
   lines — those are harmless local upload attempts (CI passes
   `--skip-storage-account-uploads=true`), not the failure. The real signal is the
