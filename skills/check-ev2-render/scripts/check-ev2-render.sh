@@ -37,6 +37,7 @@
 set -euo pipefail
 
 die() { echo "ERROR: $*" >&2; exit 2; }
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 PR_REF="${1:-}"; [[ -n "$PR_REF" ]] || die "usage: check-ev2-render.sh <PR-number|SHA> [--service-group SG]"
 shift || true
@@ -77,68 +78,6 @@ ensure_go() {
   fi
 }
 
-# Reject newly added config-dependent template logic in files preprocessed
-# before Ev2 substitutes real configuration values. Direct interpolation is
-# safe; control flow and semantic functions are not because they evaluate the
-# dunder placeholder rather than the eventual value.
-check_semantic_template_hazards() {
-  local repo="$1" base="$2" head="$3" hazards="$TMP/template-semantic-hazards"
-
-  git -C "$repo" diff --unified=0 "$base" "$head" -- \
-    '*.bicepparam' '*/pipeline.yaml' '*/values.yaml' |
-    awk '
-      function relevant(path) {
-        return path ~ /(^|\/)(pipeline|values)\.yaml$/ || path ~ /\.bicepparam$/
-      }
-      function unsafe(line) {
-        return line ~ /\{\{/ &&
-          line ~ /\.[A-Za-z_][A-Za-z0-9_.]*/ &&
-          line ~ /(^|[^A-Za-z])(if|with|range|eq|ne|lt|le|gt|ge|and|or|not|default|required|empty|coalesce|ternary|len|index)([^A-Za-z]|$)/
-      }
-      /^\+\+\+ b\// {
-        path = substr($0, 7)
-        active = relevant(path)
-        next
-      }
-      /^@@ / {
-        hunk = $0
-        sub(/^.* \+/, "", hunk)
-        sub(/ .*/, "", hunk)
-        split(hunk, parts, ",")
-        new_line = parts[1]
-        next
-      }
-      active && /^\+/ && !/^\+\+\+/ {
-        line = substr($0, 2)
-        if (unsafe(line)) {
-          printf "%s:%d: %s\n", path, new_line, line
-        }
-        new_line++
-        next
-      }
-      active && /^ / {
-        new_line++
-      }
-    ' >"$hazards"
-
-  if [[ ! -s "$hazards" ]]; then
-    echo "template semantics: no new config-dependent control flow detected"
-    return 0
-  fi
-
-  echo
-  echo "──────────────────────────────────────────────────────────────"
-  echo "FAIL ❌  Unsafe config-dependent template logic was added:"
-  sed 's/^/  /' "$hazards"
-  echo
-  echo "Resolve mode evaluates config references as non-empty __path__ strings"
-  echo "before Ev2 substitutes their real values. Use direct interpolation only;"
-  echo "move fallback, branching, iteration, and comparisons to a stage that runs"
-  echo "after Ev2 substitution (for example, the Helm chart template)."
-  echo "──────────────────────────────────────────────────────────────"
-  return 1
-}
-
 # 1) Locate an existing sdp-pipelines checkout (it's an ADO repo; you must have one).
 SDP="${SDP_PIPELINES_DIR:-}"
 if [[ -z "$SDP" ]]; then
@@ -151,20 +90,25 @@ fi
   die "set SDP_PIPELINES_DIR to your sdp-pipelines checkout (not found automatically)"
 echo "sdp-pipelines: $SDP"
 
-# 2) Resolve the ARO-HCP commit SHA (accept a PR number or a raw SHA).
+# 2) Resolve the ARO-HCP input. PRs use GitHub's synthetic merge commit, whose
+#    first parent is current main and second parent is the PR head.
 if [[ "$PR_REF" =~ ^[0-9]+$ ]]; then
-  read -r SHA DIFF_BASE DIFF_HEAD < <(
+  read -r BASE_REF EXPECTED_HEAD < <(
     gh pr view "$PR_REF" --repo Azure/ARO-HCP \
-      --json mergeCommit,headRefOid,baseRefOid \
-      --jq '[(.mergeCommit.oid // .headRefOid), .baseRefOid, .headRefOid] | @tsv'
+      --json baseRefName,headRefOid \
+      --jq '[.baseRefName, .headRefOid] | @tsv'
   ) || die "could not resolve PR #$PR_REF via gh"
+  EXPECTED_BASE="$(
+    gh api "repos/Azure/ARO-HCP/commits/${BASE_REF}" --jq '.sha'
+  )" || die "could not resolve current ${BASE_REF} head via gh"
+  MERGE_BASE="$(
+    gh api "repos/Azure/ARO-HCP/compare/${EXPECTED_BASE}...${EXPECTED_HEAD}" \
+      --jq '.merge_base_commit.sha'
+  )" || die "could not resolve merge base for current ${BASE_REF} and PR #$PR_REF"
 else
-  SHA="$PR_REF"
-  DIFF_BASE=""
-  DIFF_HEAD="$SHA"
+  EXPECTED_BASE=""
+  EXPECTED_HEAD="$PR_REF"
 fi
-SHORT="${SHA:0:12}"
-echo "ARO-HCP commit: $SHA  (target: ${ENTITY}=Microsoft.Azure.ARO.HCP.${SG}, resolve mode)"
 
 # 3) Throwaway worktree of a fresh origin/main (matched toolchain).
 git -C "$SDP" fetch -q origin main
@@ -178,7 +122,8 @@ cleanup() {
 }
 trap cleanup EXIT
 git -C "$SDP" worktree add -q --detach "$WT" origin/main
-echo "worktree: $WT ($(git -C "$WT" rev-parse --short HEAD))"
+echo "sdp-pipelines main: $(git -C "$WT" rev-parse HEAD)"
+echo "worktree: $WT"
 
 # 4) Build aro (cached per origin/main SHA); reuse prebuilt helper binaries.
 ensure_go "$WT"
@@ -217,19 +162,56 @@ if [[ -f "$BV" ]]; then
   fi
 fi
 
-# 6) Point the nested ARO-HCP at the change and regenerate config locally
-#    (copy synced artifacts from the checkout — no network / works for fork PRs).
+# 6) Build the exact ARO-HCP candidate tree and compare semantic hazards against
+#    its baseline. PRs are merged locally because GitHub's refs/pull/*/merge can
+#    temporarily lag behind a newly advanced target branch.
 REV_DIR="$WT/hcp/ARO-HCP"
 mkdir -p "$REV_DIR"
-( cd "$REV_DIR" && git init -q \
-  && git fetch -q --depth=2 https://github.com/Azure/ARO-HCP.git "$SHA" \
-  && git checkout -q FETCH_HEAD )
-if [[ -n "$DIFF_BASE" ]]; then
-  git -C "$REV_DIR" fetch -q --depth=1 https://github.com/Azure/ARO-HCP.git "$DIFF_BASE" "$DIFF_HEAD"
+git -C "$REV_DIR" init -q
+if [[ "$PR_REF" =~ ^[0-9]+$ ]]; then
+  git -C "$REV_DIR" fetch -q --depth=1 https://github.com/Azure/ARO-HCP.git \
+    "$EXPECTED_BASE" "$EXPECTED_HEAD" "$MERGE_BASE"
+  BASE_SHA="$EXPECTED_BASE"
+  HEAD_SHA="$EXPECTED_HEAD"
+  set +e
+  MERGE_OUTPUT="$(
+    git -C "$REV_DIR" merge-tree --write-tree --messages \
+      --merge-base "$MERGE_BASE" "$BASE_SHA" "$HEAD_SHA" 2>&1
+  )"
+  MERGE_RC=$?
+  set -e
+  if [[ $MERGE_RC -ne 0 ]]; then
+    echo "$MERGE_OUTPUT" >&2
+    die "PR #$PR_REF conflicts with current ${BASE_REF} (${BASE_SHA:0:12})"
+  fi
+  MERGE_TREE="$(printf '%s\n' "$MERGE_OUTPUT" | head -1)"
+  SHA="$(
+    printf 'Synthetic merge of %s into %s\n' "$HEAD_SHA" "$BASE_SHA" |
+      GIT_AUTHOR_NAME=check-ev2-render \
+      GIT_AUTHOR_EMAIL=check-ev2-render@localhost \
+      GIT_COMMITTER_NAME=check-ev2-render \
+      GIT_COMMITTER_EMAIL=check-ev2-render@localhost \
+      git -C "$REV_DIR" commit-tree "$MERGE_TREE" -p "$BASE_SHA" -p "$HEAD_SHA"
+  )"
 else
-  DIFF_BASE="$(git -C "$REV_DIR" rev-parse "${SHA}^")"
+  SHA="$EXPECTED_HEAD"
+  git -C "$REV_DIR" fetch -q --depth=2 https://github.com/Azure/ARO-HCP.git "$SHA"
+  BASE_SHA="$(git -C "$REV_DIR" rev-parse "${SHA}^")"
+  HEAD_SHA="$SHA"
 fi
-check_semantic_template_hazards "$REV_DIR" "$DIFF_BASE" "$DIFF_HEAD" || exit 1
+git -C "$REV_DIR" checkout -q "$SHA"
+
+SHORT="${SHA:0:12}"
+BASELINE_DIR="$TMP/aro-hcp-baseline"
+git -C "$REV_DIR" worktree add -q --detach "$BASELINE_DIR" "$BASE_SHA"
+echo "ARO-HCP main:      $BASE_SHA"
+if [[ "$PR_REF" =~ ^[0-9]+$ ]]; then
+  echo "ARO-HCP PR head:   $HEAD_SHA"
+else
+  echo "ARO-HCP input:     $HEAD_SHA"
+fi
+echo "ARO-HCP candidate: $SHA  (target: ${ENTITY}=Microsoft.Azure.ARO.HCP.${SG}, resolve mode)"
+"$SCRIPT_DIR/check-semantic-template-hazards.sh" "$BASELINE_DIR" "$REV_DIR" "$SG" || exit 1
 
 sed_i "s/^ARO_HCP_REPO_REVISION=.*/ARO_HCP_REPO_REVISION=${SHORT}/" "$WT/hcp/Revision.mk"
 cp "$REV_DIR/topology.yaml"           "$WT/hcp/aro-hcp-topology.yaml"
@@ -237,12 +219,16 @@ cp "$REV_DIR/config/config.schema.json" "$WT/hcp/config.schema.json"
 rm -f "$WT/hcp/config.yaml"                         # force rebuild from the change
 touch "$REV_DIR" "$WT/hcp/aro-hcp-topology.yaml" "$WT/hcp/config.schema.json"
 echo "regenerating merged config at ${SHORT}…"
-make -C "$WT/hcp" sync ARO_HCP_REPO_REVISION="$SHORT" >/dev/null
+make -C "$WT/hcp" \
+  -o ARO-HCP -o aro-hcp-topology.yaml -o config.schema.json \
+  sync ARO_HCP_REPO_REVISION="$SHORT" >/dev/null
 
 # 7) Run the REAL generator in resolve mode.
 echo "running: aro ev2 manifests test --output-format resolve …"
 set +e
-OUT=$(make -C "$WT/hcp" generate-aro-hcp-ev2-manifests \
+OUT=$(make -C "$WT/hcp" \
+        -o ARO-HCP -o aro-hcp-topology.yaml -o config.schema.json \
+        generate-aro-hcp-ev2-manifests \
         SERVICE_GROUP="$SG" ENTITY="$ENTITY" OUTPUT_FORMAT=resolve \
         ARO_HCP_REPO_REVISION="$SHORT" 2>&1)
 RC=$?

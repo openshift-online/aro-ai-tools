@@ -42,8 +42,9 @@ configuration".
 
 ## Arguments
 
-- **PR** (required): an ARO-HCP PR number (e.g. `6119`) or a commit SHA. A PR
-  number is resolved to its merge commit (or head) via `gh`.
+- **PR** (required): an ARO-HCP PR number (e.g. `6119`) or a commit SHA. For a
+  PR, the skill locally creates and validates a synthetic merge of the PR head
+  into the current target-branch head.
 - **Service group** (optional, `--service-group <SG>`): restrict to one service
   group (e.g. `RP.HypershiftOperator`). Default is the `Global` entrypoint, which
   transitively resolves **every** service group in one run.
@@ -78,7 +79,9 @@ SDP_PIPELINES_DIR=/path/to/sdp-pipelines \
 
 What it does (so you can review or reproduce by hand):
 
-1. Resolves the ARO-HCP commit SHA from the PR.
+1. Resolves the PR head, current target-branch head, and merge base, then creates
+   the synthetic merge locally. This avoids stale GitHub `refs/pull/*/merge`
+   refs and reports merge conflicts directly.
 2. Creates a throwaway `git worktree` of the sdp-pipelines **origin/main** — your
    branch/checkout is never touched.
 3. Detects the Go toolchain the repo needs (highest `go`/`toolchain` directive in
@@ -89,12 +92,14 @@ What it does (so you can review or reproduce by hand):
    unknown `manage`/`timeout` step fields — don't trust an old binary.) The build
    is cached per `origin/main` SHA; reuses your prebuilt helper binaries and the
    pinned `bicep` (only installing when missing).
-5. Checks the nested `hcp/ARO-HCP` out at the change's SHA, copies that revision's
-   `topology.yaml` + `config.schema.json`, and rebuilds the merged `hcp/config.yaml`
-   so any new config keys the change adds actually exist.
-6. Scans changed `values.yaml`, `pipeline.yaml`, and `*.bicepparam` lines for
-   config-dependent control flow and semantic functions that would evaluate
-   dunder placeholders instead of real values.
+5. Checks the nested `hcp/ARO-HCP` out at the synthetic merge, copies that
+   revision's `topology.yaml` + `config.schema.json`, and rebuilds the merged
+   `hcp/config.yaml` so the exact future-main tree is tested.
+6. Inventories semantic hazards in all files reachable from the selected
+   entrypoint/service-group on current main and on the synthetic merge. It fails
+   only for hazards newly present in the merged result, including hazards exposed
+   by topology or pipeline-reference changes. Separate topologies such as
+   `topology-dev-ci.yaml` are outside the default `Global` scope.
 7. Runs the real generator in resolve mode:
    `aro ev2 manifests test --output-format resolve` for the `Global` entrypoint
    (via `make -C hcp generate-aro-hcp-ev2-manifests … OUTPUT_FORMAT=resolve`).
