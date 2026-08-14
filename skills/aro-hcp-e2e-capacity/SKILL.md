@@ -281,6 +281,188 @@ Recalculate every affected run and subscription. Show current, proposed, delta,
 remaining quota, and whether configured slots must change. Do not edit
 `e2e-slots.yaml` unless the user asks for an implementation.
 
+## Capacity-change guidance
+
+When the user asks how to change pool sizes or maximum job counts, provide an
+ordered rollout plan, not just the final YAML values. Re-read these current
+sources before giving instructions:
+
+```text
+docs/ci/identity-leasing.md
+docs/ci/e2e-subscription-onboarding.md
+test/cmd/aro-hcp-tests/slot-manager/slots/generate_boskos.go
+test/cmd/aro-hcp-tests/slot-manager/identity-pool/
+test/Makefile
+```
+
+Also inspect the current `openshift/release` checkout:
+
+```text
+core-services/prow/02_config/generate-boskos.py
+core-services/prow/02_config/_boskos.yaml
+ci-operator/config/Azure/ARO-HCP/
+ci-operator/jobs/Azure/ARO-HCP/
+```
+
+Use `rg` to find the affected `resource_type`, job name, lease, selectors, and
+any job-level concurrency setting. Edit source configuration, not generated job
+files, and use the release repository's documented regeneration command.
+
+Before proposing any rollout:
+
+1. Recalculate post-change role-assignment, deny-assignment, identity-container,
+   and job capacity.
+2. Confirm the target subscription quota and persistent baseline leave enough
+   margin.
+3. Identify whether the change affects:
+   - `slot_count`
+   - `identity_container_count`
+   - an entire pool/subscription
+   - release-side job admission or maximum job count
+   - more than one of the above
+4. Identify whether the pool is managed or marked
+   `identity_provisioning: unmanaged`.
+5. List the ARO-HCP PR, `openshift/release` PR, manual Azure action, rollout
+   wait, and verification as separate steps with explicit dependencies.
+
+For an unmanaged pool, read the current external-subscription onboarding
+documentation and name the owning team's approval/provisioning step. Do not
+apply or delete owner-managed resources merely because the local command
+supports an explicit subscription selector.
+
+### Tooling facts to verify from source
+
+The skill should confirm these behaviors in current code before relying on them:
+
+- `sync-boskos-config` rewrites the ARO-HCP-managed Boskos types and resource
+  names from the slot catalog.
+- `validate-boskos-config` intentionally permits a temporary cross-repository
+  mismatch because growth and shrink require opposite ordering.
+- The source currently states: grow the catalog before Boskos; shrink Boskos
+  before the catalog.
+- `apply-identity-pool` creates or updates a deployment stack for every managed
+  slot present in the selected catalog.
+- Reducing `identity_container_count` updates an existing stack. If its current
+  `ActionOnUnmanage` deletes unmanaged resources/resource groups, applying the
+  reduction is destructive.
+- Removing a slot from the catalog means `apply-identity-pool` no longer visits
+  that slot. Do not assume this automatically deletes the removed slot's
+  deployment stack or resource groups.
+
+If current code differs, follow current code and report the drift from this
+workflow.
+
+### Increasing slot count
+
+Consumer capacity must become usable only after the backing Azure resources
+exist.
+
+1. Prepare the ARO-HCP catalog change and recalculate capacity.
+2. Build the E2E binary/artifacts from that proposed ARO-HCP revision.
+3. Manually apply the expanded identity pool from the proposed revision using
+   the current Make target documented in `test/Makefile`. Prefer the Make target
+   over `go run` or a stale binary because it rebuilds embedded Bicep artifacts.
+   Read the target before quoting syntax; when unchanged, use
+   `make -C test apply-identity-pool ENVIRONMENT=<environment>` and add its
+   optional subscription selector only when intentionally targeting one
+   subscription.
+4. Verify every new slot deployment stack and every expected identity-container
+   resource group exists.
+5. Merge the ARO-HCP catalog PR.
+6. From a release checkout, run the current `sync-boskos-config`, regenerate
+   release config, and run `validate-boskos-config`.
+7. Merge the `openshift/release` PR only after the ARO-HCP catalog revision and
+   Azure identity containers are ready. Wait for the Boskos rollout.
+8. Increase any separate release-side maximum job count last.
+9. Rehearse acquisition, confirm the new slots can be leased, and verify release
+   returns them to Boskos.
+
+The release PR can be prepared in parallel, but it must not expose new slots
+before their containers exist.
+
+### Increasing identity containers in existing slots
+
+Existing slots are already leaseable, so this ordering is stricter:
+
+1. Prepare the ARO-HCP `identity_container_count` change.
+2. From that proposed revision, manually apply the expanded deployment stacks.
+3. Verify the added containers before merging the ARO-HCP PR.
+4. Merge the ARO-HCP PR so new jobs begin requesting the larger container set.
+5. Change `openshift/release` only if job admission, selectors, leases, or a
+   separate maximum job count also changes; merge that change after the Azure
+   expansion and ARO-HCP merge.
+
+Changing only `identity_container_count` does not inherently add Boskos slot
+resource names. Confirm whether the generated release inventory actually
+changes rather than opening an empty release PR.
+
+### Decreasing slot count
+
+Stop consumers before removing catalog capacity:
+
+1. Lower any release-side maximum job count or routing that could fill the slots
+   being removed.
+2. Update `openshift/release` Boskos inventory first, regenerate it, merge, and
+   wait for rollout. This is the shrink ordering required by the current
+   slot-manager source.
+3. Verify removed slot names are no longer acquirable and wait for existing
+   leases/jobs on them to finish.
+4. Reduce `slot_count` in the ARO-HCP catalog and merge that PR.
+5. Decide explicitly whether to retain or delete the removed slot deployment
+   stacks and identity-container resource groups.
+
+Do not tell the user that `apply-identity-pool` cleans up removed slots unless
+current code implements that reconciliation. Any deployment-stack deletion is a
+separate destructive operation: inventory the exact stacks, prove they have no
+active leases or HCP resources, and require explicit approval before deletion.
+
+### Decreasing identity containers in existing slots
+
+Do not apply the smaller deployment stack while jobs can still be using the
+containers that will be removed.
+
+1. If needed, temporarily lower job admission/concurrency so the pool can drain.
+2. Merge the ARO-HCP catalog reduction first. New jobs can safely use the
+   smaller prefix range because those lower-index containers already exist.
+3. Wait for every job started with the old catalog revision to finish and verify
+   the soon-to-be-removed containers are not leased or busy.
+4. Manually apply the reduced identity pool.
+5. Treat the apply as destructive when the current deployment stack uses delete
+   on unmanage; verify exactly which resource groups will be removed.
+6. Restore or adjust release-side job concurrency only after the reduced pool is
+   stable.
+
+### Adding or removing a subscription/pool
+
+For additions, follow the current onboarding document in full. A slot-catalog
+entry alone is insufficient; onboarding can also require Azure provider/quota
+setup, cluster-profile inventory, bootstrap RBAC, monitoring inventory, AFEC
+registration, cleanup jobs, and owner-operated actions. Managed and external
+subscriptions have different ownership boundaries.
+
+For removals, reverse consumer exposure before deleting infrastructure:
+
+1. Remove or restrict release-side routing and Boskos resources.
+2. Wait for rollout and drain all leases/jobs.
+3. Remove the ARO-HCP catalog entry.
+4. Update cluster-profile, monitoring, cleanup, and bootstrap inventories as
+   applicable.
+5. Handle deployment stacks and Azure resources as an explicit, separately
+   approved cleanup; absence from the catalog is not proof of deletion.
+
+### Required rollout-plan format
+
+Present coordinated changes as a dependency table:
+
+| Order | Repository / system | Change or action | Must wait for | Verification |
+| ---: | --- | --- | --- | --- |
+| ... | ARO-HCP | ... | ... | ... |
+| ... | Azure manual action | ... | ... | ... |
+| ... | openshift/release | ... | ... | ... |
+
+State which PR must merge first, which manual action is not automated, what
+rollout must complete, and what would fail if the order were reversed.
+
 ## Required answer format
 
 Lead with the binding result, then show a compact table:
