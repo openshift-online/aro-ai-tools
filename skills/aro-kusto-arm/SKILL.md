@@ -29,6 +29,13 @@ time window, then discover the request identifiers from matching rows.
 
 ## ARM log locations
 
+ARM Logs Kusto is reachable only when authenticated to the Microsoft internal
+(MSIT) Azure tenant, the same tenant context used for ARO HCP INT, STG, and PROD
+logs. It is not reachable from the Red Hat Azure tenant. Before querying, verify
+that the active Azure CLI session is in MSIT; if necessary, ask the user to log
+in to the Microsoft tenant rather than interpreting an authorization or
+connectivity failure as absent telemetry.
+
 Known ARM Logs v2 clusters include:
 
 - `https://armprodeus.eastus.kusto.windows.net`
@@ -44,9 +51,9 @@ Always fully qualify the cluster, database, and table. A resource's Azure region
 does not determine which ARM log cluster contains the request, so search other
 known clusters when the first query returns no evidence.
 
-Access to these internal clusters is permission-dependent. If access is denied,
-report the cluster and error rather than treating the absence of results as
-evidence that the request did not occur.
+Access within MSIT remains permission-dependent. If access is denied after
+confirming the tenant, report the cluster and error rather than treating the
+absence of results as evidence that the request did not occur.
 
 ## Investigation workflow
 
