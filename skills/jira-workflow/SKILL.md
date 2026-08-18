@@ -6,9 +6,14 @@ description: Manage JIRA issue lifecycle and status transitions in the ARO HCP s
 ## Personal Overrides
 
 If a `SKILL.local.md` file exists in this skill's directory, read it before
-proceeding. It contains personal instructions that augment (never contradict)
-the directions below. These files are gitignored and persist across upstream
-skill updates.
+proceeding. It contains personal defaults (e.g. team name, default labels,
+components) that augment (never contradict) the directions below. These files
+are gitignored and persist across upstream skill updates.
+
+**First-time setup**: If no `SKILL.local.md` exists and the user has not
+previously configured their team, prompt them to create one by selecting their
+team from the Team Field Values table in `create-jira-issue`. Store their
+selection so workflow operations can reference the correct team.
 
 ## Policy Staleness Check
 
@@ -132,9 +137,9 @@ New -> Backlog -> To Do -> In Progress -> Review -> Release Pending -> Closed
 
 | Status | Entry Criteria | Required Fields |
 |--------|---------------|-----------------|
-| New | Ticket just created | Description (initial draft) |
+| New | Ticket just created | Description (initial draft), Team field |
 | Backlog | Refinement in progress | — |
-| To Do | Definition of Ready met | Priority, Size, Acceptance Criteria, Components, not Blocked |
+| To Do | Definition of Ready met | Priority, Size, Acceptance Criteria, Components, Team field, not Blocked |
 | In Progress | Pulled into sprint | Parent ticket should also be In Progress |
 | Review | Code review in progress | — |
 | Release Pending | PR merged, not yet in production | — |
@@ -157,10 +162,10 @@ New -> Backlog -> To Do -> In Progress -> Review -> Release Pending -> Closed
 
 | Status | Entry Criteria | Required Fields |
 |--------|---------------|-----------------|
-| New | Bug reported, awaiting triage | Description, reproduction steps |
+| New | Bug reported, awaiting triage | Description, reproduction steps, Team field |
 | Refinement | Not used for Bugs | — |
 | Backlog | Triaged but blocked by upstream fix or backport | — |
-| To Do | Bug is valid, testable, fix target agreed | Fix Version |
+| To Do | Bug is valid, testable, fix target agreed | Fix Version, Team field |
 | In Progress | Developer actively working | — |
 | Review | Fix in code review. If QA contact is set, ready for QE verification | QA contact (if QE testing accepted) |
 | Release Pending | Fix merged, awaiting production rollout | — |
@@ -198,8 +203,8 @@ New -> Refinement -> Backlog -> In Progress -> Review -> Closed
 
 | Status | Entry Criteria | Required Fields |
 |--------|---------------|-----------------|
-| New | Epic just created | Description (initial draft) |
-| Refinement | Being refined: description, child issues being written | Assignee, Description (all sections), Components, Priority, Parent, T-Shirt Size |
+| New | Epic just created | Description (initial draft), Team field |
+| Refinement | Being refined: description, child issues being written | Assignee, Description (all sections), Components, Priority, Parent, T-Shirt Size, Team field |
 | Backlog / To Do | Refinement complete, ready for development | Epic ranked on team board |
 | In Progress | Child tasks pulled into sprints | Parent Feature/Initiative should also be In Progress |
 | Review | All child tasks complete, assignee verifying acceptance criteria | — |
@@ -241,7 +246,8 @@ Before engineering can start work:
 - [ ] Critical Epics defined at minimum
 - [ ] Dependency tickets linked or created
 - [ ] MoSCoW priority set
-- [ ] Components set (at least 'ARO HCP')
+- [ ] Team field set (`customfield_10001`)
+- [ ] Components set (at least 'ARO HCP') -- for functional categorization only
 
 #### Feature Definition of Done
 
@@ -359,3 +365,9 @@ These labels are lowercase per team convention.
 
 5. **Feature/Initiative statuses are not subject to standard stale-ticket
    automation** (see `groom-jira` skill for extended lifecycle rules).
+
+6. **Team field** (`customfield_10001`): Required on all tickets. The source
+   of truth for team ownership, replacing component-based and label-based team
+   identification. Pass as `{"name": "ARO HCP - Service Lifecycle West"}`.
+   Components remain for functional area categorization only. See
+   `create-jira-issue` for the full list of team values.
