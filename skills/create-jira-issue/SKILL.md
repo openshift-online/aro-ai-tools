@@ -6,9 +6,14 @@ description: Create a well-formed JIRA issue in the AROSLSRE project with correc
 ## Personal Overrides
 
 If a `SKILL.local.md` file exists in this skill's directory, read it before
-proceeding. It contains personal instructions that augment (never contradict)
-the directions below. These files are gitignored and persist across upstream
-skill updates.
+proceeding. It contains personal defaults (e.g. team name, default labels,
+components) that augment (never contradict) the directions below. These files
+are gitignored and persist across upstream skill updates.
+
+**First-time setup**: If no `SKILL.local.md` exists and the user has not
+previously configured their team, prompt them to create one by selecting their
+team from the Team Field Values table below. Store their selection so all
+future issues automatically include the correct Team field value.
 
 ## Policy Staleness Check
 
@@ -78,6 +83,7 @@ an issue:
 | `summary` | yes | One-line summary of the issue |
 | `description` | yes | Detailed description (see description template below) |
 | `failure_source` | yes | What failed -- guides component and label selection |
+| `team` | yes | Team field value (see Team Field Values table). Usually set via SKILL.local.md so the user does not need to provide it each time. |
 | `issue_type` | no | Story (default for most work), Task (small self-contained), Bug (confirmed defects), Spike (time-boxed research) |
 | `priority` | no | Blocker / Critical / Major / Normal / Minor (default: Normal) |
 | `size` | no | Estimated size: 1, 2, 3, 5, 8, 13, 20 (included in description, not set as a JIRA field) |
@@ -129,8 +135,12 @@ The value is an array of sprint objects -- use the `id` field from the active on
 
 ### Step 3 -- Select Component(s)
 
+> **Important**: Components are for **functional area categorization only**.
+> They are NOT used for team ownership. Use the **Team field** (Step 3a) for
+> team identification.
+
 **Always include `ARO-HCP` as a component** (per governance doc: "Please use the
-'ARO-HCP' component on your ARO JIRAs"). Then add a team/area-specific component
+'ARO-HCP' component on your ARO JIRAs"). Then add a functional-area component
 based on the failure source.
 
 Add `aro-hcp-oncall` (84116) as a secondary component for any oncall-driven
@@ -147,18 +157,48 @@ investigation.
 | Tooling, image updater, CLI tools | aro-hcp-tooling | 84114 |
 | Docs, runbooks, onboarding | aro-hcp-docs | 84115 |
 
-**Team board routing** (determines which board the ticket appears on):
-
-| Team/Board | Component to Add |
-|------------|-----------------|
-| Service Lifecycle Dashboard | `aro-hcp-service-lifecycle` |
-| ARO HCP - First Party | `aro-hcp-1p` |
-| ARO HCP - Cluster Service East | `aro-hcp-clusters-service-east` |
-| ARO HCP - Cluster Service West | `aro-hcp-clusters-service-west` |
-| ARO HCP - QE | `aro-hcp-qe` |
-| ARO HCP - CI Tiger Team | `aro-hcp-ci` |
-
 Format components as an array of objects: `[{"id": "83786"}, {"id": "84116"}]`
+
+### Step 3a -- Set the Team Field
+
+The **Team** field (`customfield_10001`) is the **source of truth** for team
+ownership. Always set it on every new ticket. The value should come from
+`SKILL.local.md` (personal override) or be explicitly provided by the user.
+
+If the user has not configured their team in `SKILL.local.md`, prompt them to
+select from the Team Field Values table and offer to create the override file.
+
+> **Transition note**: Components like `aro-hcp-service-lifecycle`,
+> `aro-hcp-clusters-service-east`, `aro-hcp-1p`, and team backlog labels
+> (e.g. `team-chainsaw-backlog`) are legacy mechanisms for team identification
+> and should no longer be relied upon. Continue using functional-area components
+> (e.g. `aro-hcp-observability`, `aro-hcp-e2e`) for categorization.
+
+#### Team Field Values
+
+| Team Field Value | Description |
+|------------------|-------------|
+| ARO HCP - Azure First Party | 1P / Azure integration team |
+| ARO HCP - Cluster Service | Cluster Service |
+| ARO HCP - Cluster Service East | Cluster Service (East) |
+| ARO HCP - Cluster Service West | Cluster Service (West) |
+| ARO HCP - Service Lifecycle East | Service Lifecycle team |
+| ARO HCP - Service Lifecycle West | SL & CAPZ team |
+| ARO HCP - Quality Engineering | QE team |
+| Team Chainsaw | SRE - Chainsaw |
+| Team Emea | SRE - EMEA |
+| Team Firefly | SRE - Firefly |
+| Team Loki | SRE - Loki |
+| Team Skippy | SRE - Skippy |
+| ARO - Staff | For tickets owned by Ademar's directs |
+
+Set the Team field in `additional_fields` using the `customfield_10001` key:
+
+```
+additional_fields:
+  customfield_10001:
+    name: "ARO HCP - Service Lifecycle West"   # use user's team value
+```
 
 ### Step 4 -- Select Labels
 
@@ -190,8 +230,12 @@ Other labels to consider (apply when relevant):
 - `aro-hcp-ci` -- CI pipeline issues
 - `aro` -- ARO product label (umbrella, covers both classic and HCP)
 - `hcp` -- HCP-specific work (use with `aro` for ARO HCP issues)
-- `aro-hcp-service-lifecycle-team` -- team label
 - `spike` -- for Spike (time-boxed research) issues
+
+> **Deprecated**: Team backlog labels like `team-chainsaw-backlog`,
+> `aro-hcp-service-lifecycle-team`, etc. were a workaround. The Team field
+> is the proper mechanism going forward. Do not add team-identifying labels
+> to new tickets.
 
 ### Step 5 -- Set Priority
 
@@ -342,8 +386,10 @@ additional_fields:
     - jit                    # only if JIT involved
     - no-qe                  # only if no QE testing needed
   components:
-    - id: "83786"            # primary component
+    - id: "83786"            # primary component (functional area)
     - id: "84116"            # secondary if oncall
+  customfield_10001:
+    name: "ARO HCP - Service Lifecycle West"  # Team field (from SKILL.local.md)
   customfield_10020: 67024   # current sprint ID (bare integer!)
   customfield_10014: AROSLSRE-XXX  # parent Epic (optional)
 ```
@@ -579,7 +625,8 @@ governance doc):
 - [ ] Ranked in backlog
 - [ ] Acceptance Criteria defined
 - [ ] Not blocked (`customfield_10517` = False)
-- [ ] Components set (at minimum `ARO-HCP` + team component)
+- [ ] Team field set (`customfield_10001`)
+- [ ] Components set (at minimum `ARO-HCP` + functional-area component)
 - [ ] Labels set (`no-qe` if QE testing not required)
 
 ## Definition of Done Checklist
@@ -667,6 +714,7 @@ Before closing an issue, verify (from governance doc):
 
 | Field | Key | Value Type | Notes |
 |-------|-----|------------|-------|
+| Team | customfield_10001 | object `{"name": "..."}` | **Required.** Source of truth for team ownership. See Team Field Values table. |
 | Sprint | customfield_10020 | bare integer | **Not** an object |
 | Story Points | customfield_10028 | number | **Not currently used by SL SRE team** |
 | Epic Link | customfield_10014 | string (issue key) | Parent Epic |
@@ -699,7 +747,8 @@ Before closing an issue, verify (from governance doc):
    `jit`, `e2e`, `no-qe`, `aro`, `hcp`. This is enforced by team convention.
 
 5. **Component format**: Pass as `[{"id": "83786"}]` -- the `id` value is a
-   string representation of the integer.
+   string representation of the integer. Components are for **functional area**
+   categorization only, not team ownership.
 
 6. **Sprint lookup**: Always query for the current sprint at creation time
    rather than hardcoding a sprint ID, as sprints rotate every two weeks.
@@ -732,6 +781,12 @@ Before closing an issue, verify (from governance doc):
 13. **Story Points**: The SL SRE team does not currently set story points in
     JIRA. Include size estimates in the description instead. Do not set
     `customfield_10028`.
+
+14. **Team field** (`customfield_10001`): Required on all new tickets. Pass as
+    `{"name": "ARO HCP - Service Lifecycle West"}`. The value must exactly
+    match one of the Team Field Values listed above. The Team field replaces
+    component-based and label-based team identification. Store the user's team
+    in `SKILL.local.md` so it does not need to be specified each time.
 
 ## MCP Tools Reference
 

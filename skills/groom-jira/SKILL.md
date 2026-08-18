@@ -6,9 +6,14 @@ description: Groom the JIRA backlog for the ARO HCP space. Detect stale tickets,
 ## Personal Overrides
 
 If a `SKILL.local.md` file exists in this skill's directory, read it before
-proceeding. It contains personal instructions that augment (never contradict)
-the directions below. These files are gitignored and persist across upstream
-skill updates.
+proceeding. It contains personal defaults (e.g. team name, default labels,
+components) that augment (never contradict) the directions below. These files
+are gitignored and persist across upstream skill updates.
+
+**First-time setup**: If no `SKILL.local.md` exists and the user has not
+previously configured their team, prompt them to create one by selecting their
+team from the Team Field Values table in `create-jira-issue`. Store their
+selection so grooming queries can filter by team.
 
 ## Policy Staleness Check
 
@@ -186,6 +191,30 @@ For each result:
 - Ping the assignee to check for blockers
 - If 30+ days stale, evict from sprint and return to Backlog
 
+### Step 4 — Review Tickets Missing Team Field
+
+The Team field (`customfield_10001`) is now the source of truth for team
+ownership. During grooming, surface tickets that are missing this field:
+
+```
+Tool: mcp_jira_searchJiraIssuesUsingJql
+cloudId: 2b9e35e3-6bd3-4cec-b838-f4249ee02432
+jql: project = AROSLSRE AND cf[10001] is EMPTY AND status not in (Closed) AND component = "ARO-HCP" ORDER BY updated DESC
+maxResults: 20
+fields: ["summary", "status", "assignee", "updated", "priority", "issuetype", "customfield_10001"]
+```
+
+For each result:
+- If the assignee's team is known, set the Team field directly
+- If the assignee's team is unknown, add a comment asking them to set it
+- When touching any ticket that is missing the Team field, take 2 seconds to
+  set it
+
+> **Note**: If `SKILL.local.md` specifies a team, you can optionally scope all
+> grooming queries to your team by adding
+> `AND cf[10001] = "ARO HCP - Service Lifecycle West"` (substituting your team
+> value) to any JQL query above.
+
 ## Weekly Status Update Preparation
 
 This section ensures that tickets are ready for the weekly program status
@@ -275,6 +304,8 @@ This prevents spending unnecessary time manually chasing stale tickets.
 | Features/Epics needing status update | `project in (AROSLSRE, HPSTRAT) AND status = "In Progress" AND issuetype in (Feature, Epic) AND component = "ARO-HCP" ORDER BY priority ASC` |
 | All Blocked tickets | `project = AROSLSRE AND cf[10517] = "True" AND status not in (Closed) ORDER BY updated ASC` |
 | Stale Features (180d, no child activity) | `project in (AROSLSRE, HPSTRAT) AND issuetype = Feature AND updated <= -180d AND status not in (Closed) ORDER BY updated ASC` |
+| Tickets missing Team field | `project = AROSLSRE AND cf[10001] is EMPTY AND status not in (Closed) AND component = "ARO-HCP" ORDER BY updated DESC` |
+| My team's open tickets | `project = AROSLSRE AND cf[10001] = "<TEAM_NAME>" AND status not in (Closed) ORDER BY updated DESC` |
 
 ## MCP Tools Reference
 
@@ -316,3 +347,10 @@ This prevents spending unnecessary time manually chasing stale tickets.
 
 7. For valid status transitions and detailed lifecycle rules per issue type,
    see the `jira-workflow` skill.
+
+8. **Team field** (`customfield_10001`): The source of truth for team
+   ownership. Pass as `{"name": "ARO HCP - Service Lifecycle West"}`. During
+   grooming, check for tickets missing this field and set it when touching
+   any ticket. Components like `aro-hcp-service-lifecycle` and team backlog
+   labels are legacy mechanisms and should not be relied upon for team
+   identification. Use `cf[10001]` in JQL to filter by team.
