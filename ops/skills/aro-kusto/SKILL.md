@@ -79,7 +79,9 @@ Whenever:
    - On **macOS**: run `scripts/klinks.sh -Cluster CLUSTER -Database DB -Kql QUERY` using `zsh`.
    - On **Linux/WSL2**: run `scripts/klinks.sh -Cluster CLUSTER -Database DB -Kql QUERY` using `bash`.
    - On **Windows (non-WSL)**: run `scripts/klinks.ps1 -Cluster CLUSTER -Database DB -Kql QUERY` using `pwsh`.
-2. Present the link to the user
+2. Present the link to the user as a raw URL.
+
+It is important to preserve the human-friendly formatting of the KQL fed to the klinks script. Escape the QUERY argument appropriately so newlines, indentation, etc. can be preserved fully.
 
 ## Reference
 
