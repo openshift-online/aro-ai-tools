@@ -55,6 +55,7 @@ Use this to discover what metrics exist for a datasource before building queries
    - If the Grafana URL is not known, use `aro-hcp-env-info` skill.
    - If `DATASOURCE_UID` (`uid`) is not known, list datasources first (see above).
    - If metrics to query aren't known, list metrics first — it's more efficient than a raw query.
+   - Make sure to deduplicate the queried data with .e.g. `max without (prometheus_replica) (ACTUAL_QUERY)` or an appropriate equivalent.
 2. Build the query JSON appropriate for the datasource type.
 3. Detect the operating system and run the appropriate script:
    - On **macOS**: run `scripts/gquery.sh -GrafanaUrl "<grafana-url>" -QueryJson '<query-json>'` using `zsh`.
