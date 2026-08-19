@@ -1,7 +1,7 @@
 # Optional first argument: AI agent client name (default: "unknown")
 param([string]$Client = "unknown")
 
-$PLUGIN_REVISION = "202606091706-5f90f90"
+$PLUGIN_REVISION = "202608191613-ec9196b"
 
 $azJson = az account show
 if ($LASTEXITCODE -ne 0) {
