@@ -61,6 +61,18 @@ The bar is considerably higher here.
 2. Those people agree it should be available out of the box in a plugin.
 3. At this point you can send in a PR to move your skill into a plugin (or to create a new plugin if interested parties agree to use it).
 
+### PR Requirements
+
+- Never push PRs that contain internal Microsoft endpoint URLs (e.g. ICM kusto). See how the `*-env-info` plugins handle this problem.
+- If referencing internal Microsoft systems, only mention the parts your skill needs, never e.g. attach a full schema dump.
+- If unsure, DM @mmazur first.
+
+If you did end up pushing a PR containing more data then you should have:
+- Ping repo maintainers.
+- Overwrite your branch with commits not containing it, then remove the branch.
+- Verify the PR no longer shows the info in the diff or description.
+- Close the PR.
+
 ## Continuous Integration
 
 This repository is onboarded onto [OpenShift CI (Prow)](https://docs.ci.openshift.org/). Configuration lives in [openshift/release](https://github.com/openshift/release) under `ci-operator/config/openshift-online/aro-ai-tools/` and `core-services/prow/02_config/openshift-online/aro-ai-tools/`.
