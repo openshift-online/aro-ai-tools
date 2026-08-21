@@ -31,6 +31,19 @@ All skills, whether part of a plugin or not, can be installed on their own.
 2. Pick the skills and agents you want.
 3. Done (`npx skills --help` for more).
 
+### Oncall CLI & Release Skills
+
+The [`oncall-cli/`](oncall-cli/) directory holds a small Go CLI (`oncall`) that
+queries Azure DevOps and EV2 for ARO HCP pipeline builds and rollouts. Build and
+install it with `oncall-cli/setup.sh` (requires Go; auth via `ADO_PAT` or `az`).
+
+Two standalone skills wrap it and filter results to a single environment
+(distinguished by the trailing `- <env>` segment of the pipeline name, e.g.
+`... - stg`):
+
+- `aro-hcp-releases` — "get all releases for test/stg/prod" (ADO pipeline builds)
+- `aro-hcp-ev2-releases` — "get all ev2 releases for prod/stg/test" (EV2 rollouts)
+
 
 ## Contributing
 
