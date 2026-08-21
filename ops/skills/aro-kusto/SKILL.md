@@ -6,11 +6,6 @@ allowed-tools: shell
 
 This skill works both with ARO Classic and ARO HCP.
 
-For investigations of Azure Resource Manager control-plane requests in internal
-ARM Logs clusters, use the standalone `aro-kusto-arm` skill alongside this one.
-`aro-kusto` provides the query tooling and schema-discovery discipline;
-`aro-kusto-arm` provides the ARM-specific call-chain and timeline workflow.
-
 ## Arguments
 
 - **Cluster** (required): A URL to a Kusto cluster (e.g. `https://my-cluster.kusto.windows.net`).
