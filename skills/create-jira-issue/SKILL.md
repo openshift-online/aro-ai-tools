@@ -256,6 +256,33 @@ Other labels to consider (apply when relevant):
 - `hcp` -- HCP-specific work (use with `aro` for ARO HCP issues)
 - `spike` -- for Spike (time-boxed research) issues
 
+**E2E Failure Taxonomy labels** (required on all E2E failure tickets per the
+[cross-team triage workflow](https://redhat-external.slack.com/archives/C075PHEFZKQ/p1785391531551619)):
+
+Every E2E failure ticket must include exactly one taxonomy label. The label
+determines which team owns resolution. Spend 10 minutes classifying before
+routing; misclassification wastes hours downstream. If a ticket is routed to
+your team with the wrong taxonomy, re-classify and re-route it.
+
+| Category | Label | Owning Team | When to Use |
+|----------|-------|-------------|-------------|
+| Test reliability | `taxonomy:test-reliability` | QE | Flaky tests, test-side timeouts, test resource cleanup, assertion bugs |
+| Azure / infrastructure | `taxonomy:azure` | SLC | Azure API failures, quota, networking, AKS node issues, VMSS |
+| Deployment / rollout | `taxonomy:deployment` | SLC | EV2 failures, Helm, pipeline, image pull, config drift |
+| Product bug | `taxonomy:product` | Component team | Bug in product code; add L2 label below |
+
+**Product taxonomy L2 labels** (use with `taxonomy:product` to route to the
+specific component team):
+
+| L2 Label | Component Team |
+|----------|---------------|
+| `taxonomy:product:frontend` | Frontend / RP |
+| `taxonomy:product:cs` | Cluster Service |
+| `taxonomy:product:backend` | Backend |
+| `taxonomy:product:maestro` | Maestro |
+| `taxonomy:product:hypershift` | HyperShift |
+| `taxonomy:product:rh-upstream` | Red Hat upstream |
+
 > **Deprecated**: Team backlog labels like `team-chainsaw-backlog`,
 > `aro-hcp-service-lifecycle-team`, etc. were a workaround. The Team field
 > is the proper mechanism going forward. Do not add team-identifying labels
@@ -386,6 +413,18 @@ with `contentFormat: "markdown"` and format each step as above.
 - Procedure to reproduce the problem
 - Who will test / how to verify the fix
 - Expected vs. actual behavior
+
+**For E2E failure tickets**, the title and required fields follow a specific
+standard per the [cross-team triage workflow](https://redhat-external.slack.com/archives/C075PHEFZKQ/p1785391531551619):
+
+- **Title format**: `E2E Failure - <BUG TITLE>`
+- **Required labels**: environment label (`env_int` / `env_stage` / `env_prod`) +
+  `e2e_failure` + taxonomy label (see Step 4)
+- **Required in description**:
+  - Link to test source (commit-pinned)
+  - Full error message + Prow job link
+  - [Sippy](https://releases.dev.aro.azure-test.net/tests/hcp) or OpenShift CI Search frequency link
+  - Regression evaluation with revert proposal when applicable
 
 **For Epics**, the description should include:
 - Functionality from the end-user perspective

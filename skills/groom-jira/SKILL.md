@@ -215,6 +215,27 @@ For each result:
 > `AND cf[10001] = "ARO HCP - Service Lifecycle West"` (substituting your team
 > value) to any JQL query above.
 
+### Step 5 — Review E2E Failure Tickets Missing Taxonomy Labels
+
+Per the [cross-team triage workflow](https://redhat-external.slack.com/archives/C075PHEFZKQ/p1785391531551619),
+every E2E failure ticket must have a taxonomy label for proper routing.
+During grooming, surface E2E tickets missing classification:
+
+```
+Tool: mcp_jira_searchJiraIssuesUsingJql
+cloudId: 2b9e35e3-6bd3-4cec-b838-f4249ee02432
+jql: project = AROSLSRE AND labels = e2e_failure AND labels not in (taxonomy:test-reliability, taxonomy:azure, taxonomy:deployment, taxonomy:product) AND status not in (Closed) ORDER BY created DESC
+maxResults: 20
+fields: ["summary", "status", "assignee", "labels", "priority", "issuetype"]
+```
+
+For each result:
+- Classify into one of: `taxonomy:test-reliability` (QE), `taxonomy:azure` (SLC),
+  `taxonomy:deployment` (SLC), or `taxonomy:product` (component team)
+- If `taxonomy:product`, also add the L2 label (e.g. `taxonomy:product:cs`)
+- Document classification reasoning in a comment
+- If the ticket is routed to the wrong team, re-classify and re-route
+
 ## Weekly Status Update Preparation
 
 This section ensures that tickets are ready for the weekly program status
@@ -306,6 +327,7 @@ This prevents spending unnecessary time manually chasing stale tickets.
 | Stale Features (180d, no child activity) | `project in (AROSLSRE, HPSTRAT) AND issuetype = Feature AND updated <= -180d AND status not in (Closed) ORDER BY updated ASC` |
 | Tickets missing Team field | `project = AROSLSRE AND cf[10001] is EMPTY AND status not in (Closed) AND component = "ARO-HCP" ORDER BY updated DESC` |
 | My team's open tickets | `project = AROSLSRE AND cf[10001] = "<TEAM_NAME>" AND status not in (Closed) ORDER BY updated DESC` |
+| E2E failures missing taxonomy | `project = AROSLSRE AND labels = e2e_failure AND labels not in (taxonomy:test-reliability, taxonomy:azure, taxonomy:deployment, taxonomy:product) AND status not in (Closed) ORDER BY created DESC` |
 
 ## MCP Tools Reference
 

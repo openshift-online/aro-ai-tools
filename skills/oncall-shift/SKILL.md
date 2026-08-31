@@ -289,8 +289,8 @@ order:
 | Pattern | URL Template |
 |---------|-------------|
 | `#NNNN` (bare PR number) | `https://github.com/Azure/ARO-HCP/pull/NNNN` |
-| `AROSLSRE-NNNN` | `https://redhat-internal.atlassian.net/browse/AROSLSRE-NNNN` |
-| `OCMBUGS-NNNN`, `OCMSVC-NNNN`, or any `PROJ-NNNN` Jira key | `https://redhat-internal.atlassian.net/browse/PROJ-NNNN` |
+| `AROSLSRE-NNNN` | `https://redhat.atlassian.net/browse/AROSLSRE-NNNN` |
+| `OCMBUGS-NNNN`, `OCMSVC-NNNN`, or any `PROJ-NNNN` Jira key | `https://redhat.atlassian.net/browse/PROJ-NNNN` |
 | IcM incident number (6–12 digits in IcM context) | `https://portal.microsofticm.com/imp/v5/incidents/details/NNNN/home` |
 | ADO build ID (in rollout/pipeline context) | `https://dev.azure.com/msazure/AzureRedHatOpenShift/_build/results?buildId=NNNN` |
 | ADO PR ID (in sdp-pipelines context) | `https://dev.azure.com/msazure/AzureRedHatOpenShift/_git/sdp-pipelines/pullrequest/NNNN` |
@@ -589,6 +589,66 @@ All monitoring should be done via the CI Health Dashboard:
   deeper analysis from Kusto logs using `hcpctl snapshot analyze`
   against the run's snapshot.
 
+## E2E Failure Triage
+
+When an E2E failure occurs (periodic, rollout, or dev), the oncall IC is
+responsible for classifying it and routing it to the correct team per the
+[cross-team triage workflow](https://redhat-external.slack.com/archives/C075PHEFZKQ/p1785391531551619).
+This applies whether you are QE on-call, SLC on-call, or the PR author.
+
+**No failure is "noise."** Every failure is actionable and needs an owner.
+
+### Classification
+
+Spend 10 minutes classifying before routing. Misclassification wastes hours
+downstream. If you receive a ticket with the wrong classification, re-classify
+and re-route it.
+
+| Category | Taxonomy Label | Owning Team |
+|----------|---------------|-------------|
+| Test reliability (flakes, test-side bugs) | `taxonomy:test-reliability` | QE |
+| Azure / infrastructure (quota, AKS, VMSS, networking) | `taxonomy:azure` | SLC |
+| Deployment / rollout (EV2, Helm, pipeline, config) | `taxonomy:deployment` | SLC |
+| Product bug (frontend, backend, CS, Maestro, HyperShift) | `taxonomy:product` + L2 label | Component team |
+
+Product L2 labels: `taxonomy:product:frontend`, `taxonomy:product:cs`,
+`taxonomy:product:backend`, `taxonomy:product:maestro`,
+`taxonomy:product:hypershift`, `taxonomy:product:rh-upstream`.
+
+### Ticket Standard
+
+Every E2E failure ticket must include:
+
+- **Title**: `E2E Failure - <BUG TITLE>`
+- **Labels**: environment (`env_int` / `env_stage` / `env_prod`) +
+  `e2e_failure` + taxonomy label
+- **Description**: link to test source (commit-pinned), full error + Prow job
+  link, Sippy or CI Search frequency link, regression evaluation with revert
+  proposal when applicable
+
+Use the `create-jira-issue` skill to create properly structured tickets.
+
+### Routing Decision
+
+When an E2E failure is reported to SLC (e.g. in Slack), determine whether
+it belongs to SLC before acting:
+
+- **taxonomy:azure** or **taxonomy:deployment** → SLC owns it. Investigate.
+- **taxonomy:test-reliability** → Route to QE. Do not investigate.
+- **taxonomy:product** → Route to the component team. Do not investigate
+  unless it blocks a rollout (in which case, investigate enough to unblock,
+  then hand off).
+- **Infrastructure requests** (e.g. "can you cycle this node?", "can you
+  clean up this environment?") → If the environment is SLC-managed, assist.
+  If not, redirect to the owning team per the triage workflow.
+
+### Automation Status
+
+Automated classification is being built under
+[ARO-26244](https://redhat.atlassian.net/browse/ARO-26244) — check
+that epic for current status. Until automation is complete, manual
+classification follows the same taxonomy.
+
 ## Escalation
 
 When the IC cannot resolve an issue, or the issue belongs to a component
@@ -682,6 +742,7 @@ By participating in the oncall rotation, associates agree to:
 | Prow Status (ARO-HCP) | https://prow.ci.openshift.org/?repo=Azure%2FARO-HCP |
 | Azure Pipelines Rollout Status | https://dev.azure.com/msazure/AzureRedHatOpenShift/_build?pipelineNameFilter=Entrypoint*HCP |
 | IcM Portal (active incidents) | https://portal.microsofticm.com/imp/v3/overview/main?q=ACTIVE&st=predefined_2 |
+| E2E Failure Triage Workflow (Slack announcement) | https://redhat-external.slack.com/archives/C075PHEFZKQ/p1785391531551619 |
 
 ## Reference: MCP Tools Used
 
