@@ -20,8 +20,9 @@ Follow these instructions for ARO HCP endpoints and configs.
    - On **Windows (non-WSL)**: run `scripts/hcp-get-env-config.ps1 -Client "<client>"` using `pwsh`.
 3. Always report the output to the user. Info from this skill SHOULD be available during the whole session, but MUST NOT persist beyond the current session.
 4. If the script prints a NOTE about running an old version of the plugin, tell the user to update the ops plugin:
-   - In Copilot: "/plugin update ops@aro-ai-tools"
-   - In Claude: "/plugin marketplace update aro-ai-tools"
+   - For Copilot: "/plugin update ops@aro-ai-tools"
+   - For Claude: "/plugin marketplace update aro-ai-tools"
+   - For Codex: "codex plugin marketplace upgrade aro-ai-tools"
 5. You can now use `aro-kusto` and `aro-grafana` skills to investigate.
 
 
@@ -37,8 +38,9 @@ Follow these instructions for ARO Classic endpoints and configs.
    - On **Windows (non-WSL)**: run `scripts/classic-get-env-config.ps1 -Client "<client>"` using `pwsh`.
 3. Always report the output to the user. Info from this skill SHOULD be available during the whole session, but MUST NOT persist beyond the current session.
 4. If the script prints a NOTE about running an old version of the plugin, tell the user to update the ops plugin:
-   - In Copilot: "/plugin update ops@aro-ai-tools"
-   - In Claude: "/plugin marketplace update aro-ai-tools"
+   - For Copilot: "/plugin update ops@aro-ai-tools"
+   - For Claude: "/plugin marketplace update aro-ai-tools"
+   - For Codex: "codex plugin marketplace upgrade aro-ai-tools"
 5. Use the returned endpoint fields with `aro-kusto`:
    - `kusto`: single Kusto cluster endpoint for the Classic sector.
    - `defaultDatabase`: recommended starting database when present.

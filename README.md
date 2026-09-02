@@ -18,11 +18,11 @@ Run these commands inside a running session (works with Claude Code and Copilot 
 /plugin install ops@aro-ai-tools
 ```
 
-Alternative you can run the same commands from your shell (if using Codex this is your only option):
+Alternatively you can run the same / similar commands from your shell (this is your only option when using Codex):
 
 ```
 codex plugin marketplace add openshift-online/aro-ai-tools
-codex plugin add ops@aro-ai-tools
+codex plugin add ops@aro-ai-tools     # for claude or copilot this would be 'plugin install'
 ```
 
 Now reload plugins / (re)start the agent and ask it, e.g. "which ARO HCP Kusto instances can I query" or "which ARO Classic Kusto instances can I query".
