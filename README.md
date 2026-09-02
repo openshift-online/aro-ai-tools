@@ -11,14 +11,21 @@
 
 #### Installation
 
+Run these commands inside a running session (works with Claude Code and Copilot CLI)
+
 ```
 /plugin marketplace add openshift-online/aro-ai-tools
 /plugin install ops@aro-ai-tools
 ```
 
-Now reload plugins / restart the agent and ask it, e.g. "which ARO HCP Kusto instances can I query" or "which ARO Classic Kusto instances can I query".
+Alternative you can run the same commands from your shell (if using Codex this is your only option):
 
-Note: **If your client supports it, you should enable marketplace autoupgrade as it won't be on by default.**. (Claude Code has this feature, Copilot CLI doesn't.)
+```
+codex plugin marketplace add openshift-online/aro-ai-tools
+codex plugin add ops@aro-ai-tools
+```
+
+Now reload plugins / (re)start the agent and ask it, e.g. "which ARO HCP Kusto instances can I query" or "which ARO Classic Kusto instances can I query".
 
 ### Standalone Skills
 
