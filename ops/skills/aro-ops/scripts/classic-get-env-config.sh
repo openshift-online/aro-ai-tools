@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-PLUGIN_REVISION="202608211616-d05de03"
+PLUGIN_REVISION="202609070213-7a3939a"
 CLASSIC_CONFIG_SUBSCRIPTION="Azure Red Hat OpenShift v4.x - Development"
 CLASSIC_CONFIG_RG="ai-plugin-cfg"
 
