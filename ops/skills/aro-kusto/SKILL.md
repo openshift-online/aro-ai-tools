@@ -1,6 +1,6 @@
 ---
 name: aro-kusto
-description: Explore and query ARO Kusto clusters — list databases, tables, and schemas, then run KQL queries to search logs, investigate errors, and debug provisioning, cluster lifecycle, and operational data. (Use `aro-env-info` first)
+description: Explore and query ARO Kusto clusters — list databases, tables, and schemas, then run KQL queries to search logs, investigate errors, and debug provisioning, cluster lifecycle, and operational data. Use aro-ops to discover endpoints.
 allowed-tools: shell
 ---
 
@@ -9,7 +9,7 @@ This skill works both with ARO Classic and ARO HCP.
 ## Arguments
 
 - **Cluster** (required): A URL to a Kusto cluster (e.g. `https://my-cluster.kusto.windows.net`).
-  If unknown, use `aro-env-info` to discover it.
+  If unknown, use `aro-ops` to discover it.
   Tell HCP from Classic by the Azure resource ID (if provided):
     - `/providers/microsoft.redhatopenshift/hcpopenshiftclusters/` → HCP
     - `/providers/microsoft.redhatopenshift/openshiftclusters/` → Classic

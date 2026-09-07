@@ -1,59 +1,48 @@
----
-name: aro-kusto-arm
-description: Investigate Azure Resource Manager operations in internal ARM Kusto logs. Use for correlation-ID timelines, downstream resource-provider calls, long-running operations, deployment failures, retries, and escalation evidence.
-allowed-tools: shell
----
-
-# ARM Kusto Investigation
+# Azure Resource Manager investigations
 
 Use internal Azure Resource Manager (ARM) request logs to reconstruct control-plane
-operations and identify where a request failed or spent time. This skill applies
-to any Azure resource provider; do not assume the affected service, provider, or
-resource type in advance.
+operations and identify where a request failed or spent time. This applies to any
+Azure resource provider; do not assume the affected service, provider, or resource
+type in advance.
 
 Use `aro-kusto` for Kusto schema discovery, query execution, and ADX links. This
-skill supplies the ARM-specific investigation workflow and query patterns.
+reference supplies the ARM-specific investigation workflow and query patterns.
 
 ## Inputs
 
 Collect as many of these as are available:
 
-- UTC time window, kept as narrow as practical
-- ARM correlation ID, activity ID, client request ID, or service request ID
-- subscription, resource group, resource ID, deployment name, or operation name
-- failed status, error code, and error message
-- a successful retry or comparison operation
+- UTC time window, kept as narrow as practical;
+- ARM correlation ID, activity ID, client request ID, or service request ID;
+- subscription, resource group, resource ID, deployment name, or operation name;
+- failed status, error code, and error message; and
+- a successful retry or comparison operation.
 
 Do not block when a correlation ID is unavailable. Start from the resource ID and
-time window, then discover the request identifiers from matching rows.
+time window, then discover request identifiers from matching rows.
 
 ## ARM log locations
 
-ARM Logs Kusto is reachable only when authenticated to the Microsoft internal
-(MSIT) Azure tenant, the same tenant context used for ARO HCP INT, STG, and PROD
-logs. It is not reachable from the Red Hat Azure tenant. Before querying, verify
-that the active Azure CLI session is in MSIT; if necessary, ask the user to log
-in to the Microsoft tenant rather than interpreting an authorization or
-connectivity failure as absent telemetry.
-
-Known ARM Logs v2 clusters include:
+The shared ARM Kusto clusters contain ARM requests for integration, staging, and
+production environments for both ARO Classic and ARO HCP:
 
 - `https://armprodeus.eastus.kusto.windows.net`
 - `https://armprodweu.westeurope.kusto.windows.net`
 - `https://armprodsea.southeastasia.kusto.windows.net`
 
-The commonly used tables are:
+Tables of interest:
 
-- `Requests.HttpIncomingRequests`: requests received by ARM
-- `Requests.HttpOutgoingRequests`: calls from ARM to downstream resource providers
+- `Requests.HttpIncomingRequests`: requests received by ARM.
+- `Requests.HttpOutgoingRequests`: calls from ARM to downstream resource
+  providers.
 
 Always fully qualify the cluster, database, and table. A resource's Azure region
 does not determine which ARM log cluster contains the request, so search other
 known clusters when the first query returns no evidence.
 
-Access within MSIT remains permission-dependent. If access is denied after
-confirming the tenant, report the cluster and error rather than treating the
-absence of results as evidence that the request did not occur.
+Access remains permission-dependent. If access is denied after confirming the
+Microsoft login in `aro-ops`, report the cluster and error rather than treating
+the absence of results as evidence that the request did not occur.
 
 ## Investigation workflow
 
@@ -74,18 +63,18 @@ absence of results as evidence that the request did not occur.
 6. **Reduce polling noise.** Focus on writes, failures, long-duration calls,
    exceptions, and state transitions. Keep polling rows only when their cadence
    or terminal result is relevant.
-7. **Measure time.** Compare first/last observations, recorded request duration,
-   and gaps between adjacent events. These are different measurements; label them
-   accurately.
+7. **Measure time.** Compare first and last observations, recorded request
+   duration, and gaps between adjacent events. These are different measurements;
+   label them accurately.
 8. **Compare retries when available.** Determine whether a retry created, reused,
    or skipped downstream resources. Retry success alone does not prove the
    original dependency recovered.
 9. **Pivot to provider logs.** ARM logs show the control-plane boundary, not
    necessarily the provider's internal cause. Carry the downstream resource ID,
-   request IDs, status, and exact UTC window into the provider-specific logs.
+   request IDs, status, and exact UTC window into provider-specific logs.
 
-Reusable queries are in [references/kql-recipes.md](references/kql-recipes.md).
-Adapt provider and resource filters only after inspecting the actual rows.
+When constructing queries, read `references/arm-kql-recipes.md`. Adapt provider
+and resource filters only after inspecting the actual schema and rows.
 
 ## Query discipline
 
@@ -144,10 +133,10 @@ Conclusion:
 
 ## Common mistakes
 
-- Searching only the Azure region nearest the resource
-- Querying only `HttpIncomingRequests`
-- Assuming fields copied from a previous incident still exist
-- Treating repeated polling as separate failures
-- Calling an upsert a creation without evidence that the resource was absent
-- Treating retry success as proof of root cause
-- Assigning provider-internal blame from ARM boundary evidence alone
+- Searching only the Azure region nearest the resource.
+- Querying only `HttpIncomingRequests`.
+- Assuming fields copied from a previous incident still exist.
+- Treating repeated polling as separate failures.
+- Calling an upsert a creation without evidence that the resource was absent.
+- Treating retry success as proof of root cause.
+- Assigning provider-internal blame from ARM boundary evidence alone.

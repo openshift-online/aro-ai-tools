@@ -1,6 +1,6 @@
 ---
 name: aro-grafana
-description: Explore datasources and run PromQL queries against ARO HCP Grafana instances — discover datasource UIDs and available metrics, then query resource utilization, request latency, error rates, cluster health, tenant utilization, and more. (Use `aro-env-info` first)
+description: Explore datasources and run PromQL queries against ARO HCP Grafana instances — discover datasource UIDs and available metrics, then query resource utilization, request latency, error rates, cluster health, tenant utilization, and more. Use aro-ops to discover endpoints.
 allowed-tools: shell
 ---
 
@@ -9,7 +9,7 @@ ARO Classic has no Grafana endpoints; aro-grafana is HCP-only.
 
 ## Arguments
 
-- **grafana-url** (required): The base URL of the Grafana instance (e.g. `https://my-grafana.region.grafana.azure.com`). Use the `aro-env-info` skill to discover the Grafana URL for a given environment if not already known.
+- **grafana-url** (required): The base URL of the Grafana instance (e.g. `https://my-grafana.region.grafana.azure.com`). Use the `aro-ops` skill to discover the Grafana URL for a given environment if not already known.
 - **query-json** (required for queries): A JSON string containing the full query body to send. The structure depends on the datasource type. See Query JSON example below.
 
 ## Instructions
@@ -52,7 +52,7 @@ Use this to discover what metrics exist for a datasource before building queries
 ### Running queries
 
 1. Determine the Grafana endpoint URL and query from context or by asking the user.
-   - If the Grafana URL is not known, use `aro-env-info` skill.
+   - If the Grafana URL is not known, use the `aro-ops` skill.
    - If `DATASOURCE_UID` (`uid`) is not known, list datasources first (see above).
    - If metrics to query aren't known, list metrics first — it's more efficient than a raw query.
    - Make sure to deduplicate the queried data with .e.g. `max without (prometheus_replica) (ACTUAL_QUERY)` or an appropriate equivalent.

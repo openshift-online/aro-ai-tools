@@ -1,7 +1,7 @@
 {
   "name": "ops",
   "version": "0.1.0",
-  "description": "Operational skills for Azure Red Hat OpenShift environments.",
+  "description": "Discover and investigate Azure Red Hat OpenShift operational state.",
   "author": {
     "name": "ARO Team",
     "url": "https://github.com/openshift-online"
@@ -18,8 +18,8 @@
   "skills": "./skills/",
   "interface": {
     "displayName": "ARO Ops",
-    "shortDescription": "Query ARO HCP and Classic operational data from Codex.",
-    "longDescription": "Access ARO HCP Grafana and Prometheus metrics plus ARO HCP and Classic Kusto data through bundled operational skills for Codex.",
+    "shortDescription": "Discover and investigate ARO operational state.",
+    "longDescription": "Discover ARO HCP and Classic operational context and investigate it through bundled environment, Kusto, Grafana, and ARM guidance.",
     "developerName": "ARO Team",
     "category": "Engineering",
     "capabilities": [
@@ -30,7 +30,8 @@
     "defaultPrompt": [
       "Which ARO HCP Kusto instances can I query?",
       "Which ARO Classic Kusto instances can I query?",
-      "List the Grafana datasources available for this ARO environment."
+      "List the Grafana datasources available for this ARO environment.",
+      "Help me investigate an ARO operational problem."
     ],
     "brandColor": "#EE0000",
     "screenshots": []
