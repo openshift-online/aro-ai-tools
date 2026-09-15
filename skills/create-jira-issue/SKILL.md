@@ -121,30 +121,50 @@ Select based on the nature of the work. The governance doc defines these precise
 cover this work.** Duplicate tickets fragment investigation history, split
 follow-up work across multiple cards, and waste reviewer time.
 
-Run a JQL search using keywords from the summary/failure source, scoped to
-recent, non-closed issues:
+Search using distinctive terms from the work or failure source. Use `text`
+to search summaries, descriptions, and comments, not just titles. Include
+all statuses and avoid date cutoffs so older tracking cards and closed
+occurrences are not excluded:
 
 ```
 Tool: mcp_jira_searchJiraIssuesUsingJql
 cloudId: 2b9e35e3-6bd3-4cec-b838-f4249ee02432
-jql: project = AROSLSRE AND status != Closed AND (summary ~ "<keyword1>" OR summary ~ "<keyword2>") ORDER BY created DESC
+jql: project = AROSLSRE AND (text ~ "<keyword1>" OR text ~ "<keyword2>") ORDER BY created DESC
 maxResults: 10
-fields: ["summary", "status", "created", "labels"]
+fields: ["summary", "status", "resolution", "created", "labels"]
 ```
 
-Pick 1-3 distinctive keywords from the failure (e.g. a component name, error
-string, job name) rather than generic words like "failure" or "test".
+Pick 1-3 distinctive terms (e.g. a capability, component, error string, or
+job name) rather than generic words like "failure" or "test". Refine noisy
+queries or try alternate wording when needed, without excluding older or
+closed cards.
 
-- **If a clear duplicate is found** (same failure, same root cause, still
-  open): do not create a new issue. Instead, link the new context as a comment
-  on the existing ticket (`mcp_jira_addCommentToJiraIssue`), and reuse that
-  ticket for any sub-task or follow-up work.
-- **If a related-but-distinct issue is found** (e.g. same symptom but a
-  different root cause, or a prior occurrence that was already closed):
-  proceed with creating a new issue, but reference the related ticket key in
-  the description's **References** section.
-- **If nothing relevant is found**: proceed to Step 2 and create the issue
-  as normal.
+`maxResults` is a page size, not a total search limit. Follow the pagination
+returned by the search tool until the relevant queries are exhausted or a
+confirmed duplicate is found. No relevant match on the first page does not
+mean no existing card applies. If a search fails or a plausible candidate
+cannot be read, report the blocker and pause creation; do not treat this as
+an empty result.
+
+Read plausible candidates with `mcp_jira_getJiraIssue`, including their
+descriptions, relevant comments, resolution, and issue links. Compare the
+work's scope, symptoms, environment, and root cause when known; title
+similarity alone is not enough. Follow duplicate links to the canonical
+tracking ticket, even if it is in another project.
+
+- **If a clear open duplicate is found**: do not create a new issue. Add
+  the new evidence/context as a comment on the existing ticket
+  (`mcp_jira_addCommentToJiraIssue`, `contentFormat: "markdown"`) and return
+  its key/link to the user. Reuse existing sub-tasks for the same work.
+- **If a closed match is found**: inspect its resolution and history.
+  Do not recreate already-completed work. For a recurrence, ask the user
+  whether to reopen the original or create a distinct linked issue; do not
+  reopen automatically or assume closed means unrelated.
+- **If a related-but-distinct issue is found** (e.g. a different root cause
+  or separately scoped follow-up): proceed with a new issue, explain the
+  distinction, and reference the related key in **References**.
+- **If nothing relevant is found after completing the search and candidate
+  review**: proceed to Step 2.
 
 When in doubt, surface the candidate matches to the user and ask which to use
 before creating a new ticket.
@@ -467,6 +487,9 @@ standard per the [cross-team triage workflow](https://redhat-external.slack.com/
 - T-shirt size estimate
 
 ### Step 8 -- Create the Issue
+
+Proceed only after Step 1a is complete and no unresolved duplicate candidates
+or search failures remain.
 
 ```
 Tool: mcp_jira_createJiraIssue
@@ -899,6 +922,7 @@ Before closing an issue, verify (from governance doc):
 | `mcp_jira_transitionJiraIssue` | Change issue status |
 | `mcp_jira_editJiraIssue` | Update fields (Blocked, Color Status, etc.) |
 | `mcp_jira_searchJiraIssuesUsingJql` | Check for existing/duplicate issues, look up current sprint, find related issues |
+| `mcp_jira_getJiraIssue` | Inspect duplicate candidates, resolution/history, and linked tracking tickets |
 | `mcp_jira_getTransitionsForJiraIssue` | List available transitions |
 | `mcp_jira_getJiraIssueTypeMetaWithFields` | Inspect field metadata |
 | `mcp_jira_getVisibleJiraProjects` | Project lookup |
