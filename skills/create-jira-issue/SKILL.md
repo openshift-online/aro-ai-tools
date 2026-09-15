@@ -40,7 +40,8 @@ Create JIRA issues in the **AROSLSRE** (ARO HCP Service Lifecycle) project with
 correctly populated fields: issue type, priority, component(s), labels, sprint
 assignment, sizing, and a structured description. Follows the official
 [ARO HCP JIRA governance conventions][governance-doc] for hierarchy, workflows,
-definitions of ready/done, and field requirements.
+definitions of ready/done, and field requirements. Before creating an issue,
+I search for existing tickets covering the same work to avoid duplicates.
 
 When Just-In-Time (JIT) cluster access is involved, I guide the user through
 documenting the JIT request per team conventions.
@@ -113,6 +114,40 @@ Select based on the nature of the work. The governance doc defines these precise
 
 > **Note**: Spikes use the Story issue type with a `spike` label to distinguish
 > them. They should have a clear time-box defined in the description.
+
+### Step 1a -- Check for Existing Issues (Avoid Duplicates)
+
+**Before creating any issue, search for existing tickets that may already
+cover this work.** Duplicate tickets fragment investigation history, split
+follow-up work across multiple cards, and waste reviewer time.
+
+Run a JQL search using keywords from the summary/failure source, scoped to
+recent, non-closed issues:
+
+```
+Tool: mcp_jira_searchJiraIssuesUsingJql
+cloudId: 2b9e35e3-6bd3-4cec-b838-f4249ee02432
+jql: project = AROSLSRE AND status != Closed AND (summary ~ "<keyword1>" OR summary ~ "<keyword2>") ORDER BY created DESC
+maxResults: 10
+fields: ["summary", "status", "created", "labels"]
+```
+
+Pick 1-3 distinctive keywords from the failure (e.g. a component name, error
+string, job name) rather than generic words like "failure" or "test".
+
+- **If a clear duplicate is found** (same failure, same root cause, still
+  open): do not create a new issue. Instead, link the new context as a comment
+  on the existing ticket (`mcp_jira_addCommentToJiraIssue`), and reuse that
+  ticket for any sub-task or follow-up work.
+- **If a related-but-distinct issue is found** (e.g. same symptom but a
+  different root cause, or a prior occurrence that was already closed):
+  proceed with creating a new issue, but reference the related ticket key in
+  the description's **References** section.
+- **If nothing relevant is found**: proceed to Step 2 and create the issue
+  as normal.
+
+When in doubt, surface the candidate matches to the user and ask which to use
+before creating a new ticket.
 
 ### Step 2 -- Determine the Current Sprint
 
@@ -863,7 +898,7 @@ Before closing an issue, verify (from governance doc):
 | `mcp_jira_addCommentToJiraIssue` | Add JIT or investigation comments |
 | `mcp_jira_transitionJiraIssue` | Change issue status |
 | `mcp_jira_editJiraIssue` | Update fields (Blocked, Color Status, etc.) |
-| `mcp_jira_searchJiraIssuesUsingJql` | Look up current sprint, find related issues |
+| `mcp_jira_searchJiraIssuesUsingJql` | Check for existing/duplicate issues, look up current sprint, find related issues |
 | `mcp_jira_getTransitionsForJiraIssue` | List available transitions |
 | `mcp_jira_getJiraIssueTypeMetaWithFields` | Inspect field metadata |
 | `mcp_jira_getVisibleJiraProjects` | Project lookup |
