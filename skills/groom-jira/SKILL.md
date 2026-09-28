@@ -371,10 +371,10 @@ This prevents spending unnecessary time manually chasing stale tickets.
    see the `jira-workflow` skill.
 
 8. **Team field** (`customfield_10001`): The source of truth for team
-   ownership. When **editing** an existing ticket via `mcp_jira_editJiraIssue`,
-   pass the team ID as a **bare string** — not an object:
-   `"customfield_10001": "6848a854-2fcb-49c8-9198-df4e8f80cfd3"`.
-   Passing `{"name": "..."}` or `{"id": "..."}` to `editJiraIssue` will fail
+   ownership. Pass the team ID as a **bare string** — not an object —
+   `"customfield_10001": "6848a854-2fcb-49c8-9198-df4e8f80cfd3"`, on both
+   `mcp_jira_createJiraIssue` and `mcp_jira_editJiraIssue`.
+   Passing `{"name": "..."}` or `{"id": "..."}` will fail
    with "Team id is not valid". To find a team's ID, read
    `customfield_10001.id` from any ticket that already has the desired team
    set. Known IDs:

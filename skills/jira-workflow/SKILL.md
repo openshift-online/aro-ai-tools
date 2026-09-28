@@ -368,10 +368,10 @@ These labels are lowercase per team convention.
 
 6. **Team field** (`customfield_10001`): Required on all tickets. The source
    of truth for team ownership, replacing component-based and label-based team
-   identification. When **creating** via `mcp_jira_createJiraIssue`, pass as
-   `{"name": "ARO HCP - Service Lifecycle West"}`. When **editing** via
-   `mcp_jira_editJiraIssue`, pass the team ID as a **bare string**:
-   `"customfield_10001": "6848a854-2fcb-49c8-9198-df4e8f80cfd3"`.
-   To find a team's ID, read `customfield_10001.id` from any ticket that
-   already has the desired team set. See `create-jira-issue` for the full
-   list of team values and known IDs.
+   identification. Pass the team ID as a **bare string** —
+   `"customfield_10001": "6848a854-2fcb-49c8-9198-df4e8f80cfd3"` — to both
+   `mcp_jira_createJiraIssue` and `mcp_jira_editJiraIssue`. Passing
+   `{"name": "..."}` or `{"id": "..."}` fails with "Team id is not valid" on
+   either call. To find a team's ID, read `customfield_10001.id` from any
+   ticket that already has the desired team set. See `create-jira-issue` for
+   the full list of team values and known IDs.
