@@ -7,6 +7,9 @@ front of you, state whether it held, and say so when it did not.
 
 - Absence of a match is normal. Investigate from the evidence (SKILL.md, "When nothing matches").
 - Check anything marked "may be stale" in the current repo before relying on it.
+- Some "how to separate it" steps use Azure (Activity Log, `az vm list-skus`,
+  `az vm list-usage`). Azure read access cannot be assumed; see SKILL.md. Without
+  it, report the step as not examined.
 - Entries marked *seen once* come from a single investigation.
 - Entry format: **Signature** → **What it was** → **How to separate it** → **Cautions**.
 - Maintenance: the process for adding entries is not defined yet. Each entry

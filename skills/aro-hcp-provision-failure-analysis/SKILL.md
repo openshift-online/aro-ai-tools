@@ -18,11 +18,19 @@ facts.
 This skill is read-only analysis. Do not change Azure, Kubernetes, or Helm state;
 propose changes and say exactly what they would do.
 
+**Do not assume Azure access.** Depending on where the agent runs, it may reach
+only Kusto and Prow artifacts. Agents running on a developer host may also have
+read access to Azure through the developer's credentials. Take evidence from
+Kusto and Prow artifacts by default. Use `az` (read-only) only after confirming
+it works in your environment. When a check needs Azure (Activity Log, SKU
+listings, quota) and you cannot run it, say it was not examined and give the
+exact read-only command a human can run.
+
 ## Prerequisites
 
 - `aro-kusto` skill, and ARO-HCP `docs/ai/kusto-debugging.md`, for every Kusto query.
 - `hcpctl ci failure-patterns` for failure patterns and run lists (commands in
-  reference.md). It replaces CIHealth, which automated consumers cannot reach.
+  reference.md).
 - DEV Kusto: cluster `https://hcp-dev-us-2.eastus2.kusto.windows.net`, database
   `ServiceLogs`.
 
@@ -35,11 +43,17 @@ those sources already establish the failure.
 Pull failure patterns for the relevant UTC window. A pattern is a **symptom
 group, not a root cause**; pattern counts overlap and must not be added.
 
-1. **State the effective coverage window.** `rp-provision` observations exist
-   only for runs ingested after the collector rollout (forward-only, no
-   backfill). Failed runs with no `rp-provision` observation are *unclassified*:
-   classify each from its Prow artifacts by first failing step. Coverage gaps
-   are findings, not tool defects.
+1. **State the effective coverage window.** Provision failures are reported by
+   two kinds of observation:
+   - `rp-provision`: the RP deployed from main code. It occurs in `e2e-parallel`
+     and also in `e2e-parallel-inplace-upgrade`.
+   - `rp-upgrade`: the RP upgraded from main code to the PR code. It occurs
+     only in `e2e-parallel-inplace-upgrade`, so it exercises the PR's changes.
+
+   Observations exist only for runs ingested after the collector rollout
+   (forward-only, no backfill). Failed runs with no observation of either kind
+   are *unclassified*: classify each from its Prow artifacts by first failing
+   step. Coverage gaps are findings, not tool defects.
 2. **Use settled windows.** End the window at least 5 minutes before now
    (ingestion lag). Treat an unfinished day as provisional.
 3. For each affected run record: job ID, job family (presubmit / periodic /
@@ -130,7 +144,8 @@ ones the evidence makes relevant.
 5. **Quantify before accepting throttling, capacity, or timeouts.** A 429 or
    capacity string in test output is not yet a cause. Separate real throttling
    from other services' 429s, establish scope (principal, subscription, tenant),
-   check Activity Log and backend logs for representative correlation IDs, and
+   check backend logs, and Activity Log if Azure access is available, for
+   representative correlation IDs, and
    reconcile any estimate against independent volume data. Before raising a
    timeout, measure the fault duration against the step budget and against the
    same step on successful runs.

@@ -24,6 +24,13 @@ $HCPCTL ci failure-patterns --kusto hcp-dev-us-2 --region eastus2 --database Ser
 `--save-input` refuses to overwrite, so use a fresh `RUN_DIR`. Output is JSON.
 A saved bundle replays offline with `--input bundle.json`.
 
+Provision failures come from two observation sources. `--source rp-provision` is
+the RP deployed from main code (in `e2e-parallel` and in
+`e2e-parallel-inplace-upgrade`). `--source rp-upgrade` is the RP upgraded from
+main code to the PR code (only in `e2e-parallel-inplace-upgrade`). Run the
+collection once per source. Check with `--help` how `--job-filter` matches, so
+that the filter covers the jobs you intend.
+
 - Check that the command exited 0 and that `summary.input_count == (.results|length)`
   and `metadata.window` equals what you requested. A query or partial failure is a
   collection problem: retry once, then report it. Never analyze a partial bundle.
@@ -54,15 +61,15 @@ jq --argjson i 0 '.patterns[$i] as $p | [ $p.result_indexes[] as $x | .results[$
      findings:[.findings[]|select(.key==$p.key)|{rule_id,outcome}]} ]' "$REPORT"
 ```
 
-**Failed runs without an `rp-provision` observation (coverage gap):**
+**Failed runs without an `rp-provision` or `rp-upgrade` observation (coverage gap):**
 
 ```bash
-jq '(.observations|map(select(.source=="rp-provision").build_id)|unique) as $has
+jq '(.observations|map(select(.source|startswith("rp-")).build_id)|unique) as $has
   | [.runs[]|select(.failed and ((.build_id as $b|$has|index($b))==null))|{build_id,job_name,finished_at,prow_url}]' "$BUNDLE"
 ```
 
-**Effective `rp-provision` coverage start:**
-`jq '[.observations[]|select(.source=="rp-provision")|.started_at]|min' "$BUNDLE"`.
+**Effective coverage start per source:**
+`jq '[.observations[]|select(.source|startswith("rp-"))] | group_by(.source) | map({source:.[0].source, start:(map(.started_at)|min)})' "$BUNDLE"`.
 The collector writes forward-only from its rollout (about 2026-11-03 10:26 UTC);
 older rows have an empty `source` and must not be guessed into one.
 
@@ -105,8 +112,7 @@ ciJobOutcomes
 - `mgmtCluster` always shows stamp 1. `e2e-parallel` has stamps 1 and 2;
   `e2e-parallel-inplace-upgrade` has only stamp 1. For stamp 2, take the stamp-1
   name's pattern and confirm it exists in `kubernetesEvents` before use.
-- Resource groups: `hcp-underlay-<cluster-name>` (from the previous skill version;
-  confirm on a real run).
+- Resource groups: `hcp-underlay-<cluster-name>` (confirm on a real run).
 
 ## 3. DEV pipeline structure
 
