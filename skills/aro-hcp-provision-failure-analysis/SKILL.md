@@ -18,13 +18,23 @@ facts.
 This skill is read-only analysis. Do not change Azure, Kubernetes, or Helm state;
 propose changes and say exactly what they would do.
 
-**Do not assume Azure access.** Depending on where the agent runs, it may reach
-only Kusto and Prow artifacts. Agents running on a developer host may also have
-read access to Azure through the developer's credentials. Take evidence from
-Kusto and Prow artifacts by default. Use `az` (read-only) only after confirming
-it works in your environment. When a check needs Azure (Activity Log, SKU
-listings, quota) and you cannot run it, say it was not examined and give the
-exact read-only command a human can run.
+## Capabilities
+
+The skill runs in different environments: a scheduled bot with a fixed set of
+tools, or an agent on a developer's machine with that developer's credentials.
+What you can reach differs. At the start, find out which of these you have. Never
+assume one. For anything missing, do what the right column says and list it
+under "what you did not examine" in the report.
+
+| Capability | If you have it | If you do not |
+|---|---|---|
+| Kusto (DEV `ServiceLogs`) | Use it through the `aro-kusto` skill. | Analyze from Prow artifacts and source only. Say that pod, node, and event evidence was not examined, and give the queries a human can run. |
+| `hcpctl` | Collect failure patterns with it (reference.md). | Query `ciJobOutcomes` and `ciTestResults` in Kusto directly and group by message. Patterns are then not normalized; say so. With neither, ask for the pattern or run URLs. |
+| Azure read access (`az`, Activity Log) | Use read-only commands, after confirming they work. | Take evidence from Kusto and Prow only. For a check that needs Azure (Activity Log, SKU listings, quota), give the exact read-only command a human can run. |
+| GitHub read access | Run the Step 3 PR searches. | Ask the human for known PRs, or give the searches to run. State that the existing-fix check was not done. Do not assume nothing is in flight. |
+| Jira read access | Run the Step 3 Jira search. | Same as GitHub. |
+| History of earlier runs (for example the thread history of the channel a scheduled bot posts to) | Read the result records of earlier runs and skip what they mark as handled ("Choosing what to analyze"). | Do not infer anything about earlier runs. What is handled and what to look at come from the human's prompt and from Step 3. |
+| A human in the session | Ask when the choice is a real fork. Show the candidates you considered and why you skipped the others. | Decide by the rules here and record the choices in the report. |
 
 ## Prerequisites
 
@@ -38,38 +48,39 @@ ARM and Shell failures can often be fully analyzed from the pattern report, Prow
 artifacts, pipeline configuration, and source code. Do not require Kusto when
 those sources already establish the failure.
 
-## Unattended runs
+## Choosing what to analyze
 
-Applies when the skill runs on a schedule and no pattern or component was
-named. If one was named, analyze it and skip this section.
+- **A target was named** (a pattern, component, run, or failure, in the prompt):
+  analyze it. Step 3 still applies. Skip the rest of this section.
+- **No target named:** select one, as follows.
 
-There is no memory between runs. What is already handled comes from two places:
-earlier run threads in the Slack channel (each ends with a result record, see
-Step 8) and GitHub and Jira (Step 3). Read both before choosing.
+One root-cause mode per fix. A pattern is a symptom group and can hide several
+modes, so narrow the claim to one mode after analysis. Report the other modes you
+found as new-mode candidates. In scheduled runs open at most one PR per run.
 
-- **One fix per run.** At most one PR, for one root-cause mode. A pattern is a
-  symptom group and can hide several modes, so narrow the claim to one mode
-  after analysis. Report the other modes you found as new-mode candidates; later
-  runs pick them up because they stay uncovered.
-- **Selection.** Collect patterns (Step 1) and walk them in rank order, at most
-  5 deep. Skip a candidate when:
-  - Step 3 finds a valid fix in flight. That includes PRs this bot opened in
-    earlier runs; do not distinguish them from anyone else's.
-  - A recent thread (default: the last 7 days) records a non-PR outcome for it
-    (not code-fixable, inconclusive, platform escalation, covered), unless the
-    pattern's rate or signature changed materially or the recorded reopen
-    condition is met.
+What counts as already handled comes from every source you have, and you say
+which you could not use:
 
-  Analyze the first candidate that remains. If none remains, post the status and
-  open no PR.
+- Step 3 findings: a valid fix in flight, including PRs opened by earlier runs of
+  this bot. Do not distinguish them from anyone else's.
+- Run history, if you have it: the result record of a recent run (default: the
+  last 7 days) with a non-PR outcome (not code-fixable, inconclusive, platform
+  escalation, covered). Revisit it only if the pattern's rate or signature
+  changed materially or the recorded reopen condition is met.
+- The prompt: patterns or PRs the human says are handled.
+
+Collect patterns (Step 1), walk them in rank order, at most 5 deep, and skip the
+handled ones. Analyze the first that remains. If none remains, report that and
+open no PR.
+
 - **Stale or closed PRs.** A stale PR of this bot stays claimed; opening a second
-  one for the same cause creates duplicates. Flag it in the report for a human.
-  A PR closed without merging is a human rejection: read the closure reason
-  before the pattern goes back in the pool.
-- **Merged PRs.** A pattern that still ranks high after a merge goes through
-  the merged-PR signal in Step 3, then the recurrence checks in Step 5.
+  one for the same cause creates duplicates. Flag it for a human. A PR closed
+  without merging is a human rejection: read the closure reason before the
+  pattern goes back in the pool.
+- **Merged PRs.** A pattern that still ranks high after a merge goes through the
+  merged-PR signal in Step 3, then the recurrence checks in Step 5.
 - **PR budget.** If told the number of open PRs has reached its limit, open no
-  PR. Post the status instead, listing the open PRs and flagging stale ones.
+  PR. Report the status instead, listing the open PRs and flagging stale ones.
 
 ## Step 1: Gather failure data
 
@@ -151,9 +162,8 @@ Rules that keep conclusions honest:
 Before investigating in depth, find out whether a PR or Jira already proposes a
 valid fix for this pattern. Steps 1 and 2 give you what you need to search: the
 canonical error text, the failing step and component, and the first-seen time.
-Searches are read-only (commands in reference.md). If GitHub or Jira cannot be
-queried from your environment, say the check was not done and give the searches
-a human can run.
+Searches are read-only (commands in reference.md). Without GitHub or Jira access,
+follow the Capabilities table.
 
 Search merged and open PRs, in ARO-HCP and also in ARO-Tools and
 openshift/release when the failing layer lives there, and Jira. Use the error
@@ -435,8 +445,8 @@ Structure findings as:
   failure-modes.md: signature, evidence, how it was separated, and the query that
   finds it again.
 
-In unattended runs, end the report with a result record so a later run can read
-it from the thread:
+End the report with a result record. A scheduled bot's later runs read it from
+its run history; for a local agent it is a summary the human can reuse:
 
 ```text
 signature:  <canonical error text> | <failing step>
