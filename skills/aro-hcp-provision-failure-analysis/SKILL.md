@@ -40,6 +40,10 @@ under "what you did not examine" in the report.
 - `aro-kusto` skill, and ARO-HCP `docs/ai/kusto-debugging.md`, for every Kusto query.
 - Failure patterns come from Kusto tables `ciFailurePatterns`, `ciTestResults`, and
   `ciJobOutcomes` (queries in reference.md). No CLI is required.
+- **Do not run `hcpctl`** (any subcommand, including `ci failure-patterns` and
+  `snapshot`). Its LLM-driven analysis supports e2e tests, not provision steps,
+  and its snapshot reader fails on `e2e-parallel-inplace-upgrade` runs. Use the
+  Kusto queries and Prow artifacts in reference.md.
 - DEV Kusto: cluster `https://hcp-dev-us-2.eastus2.kusto.windows.net`, database
   `ServiceLogs`.
 
