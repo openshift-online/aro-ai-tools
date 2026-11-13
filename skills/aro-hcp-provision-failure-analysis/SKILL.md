@@ -1,6 +1,6 @@
 ---
 name: provision-failure-analysis
-description: Triage and analyze e2e-parallel provision failures in DEV. Covers Bicep/ARM deployments, Helm releases, Shell steps, and CI or platform infrastructure. Use when investigating why e2e-parallel provision failed, which provision failure pattern is most frequent, or whether a mitigation worked.
+description: Triage and analyze e2e-parallel provision failures in DEV. Covers Bicep/ARM deployments, Helm releases, Shell steps, and CI or platform infrastructure. Use when investigating why e2e-parallel provision failed, which provision failure pattern is most frequent, whether a mitigation worked or a fix is already in flight, or which unhandled failure pattern to take next on a scheduled run.
 ---
 
 # Provision Failure Analysis
@@ -37,6 +37,39 @@ exact read-only command a human can run.
 ARM and Shell failures can often be fully analyzed from the pattern report, Prow
 artifacts, pipeline configuration, and source code. Do not require Kusto when
 those sources already establish the failure.
+
+## Unattended runs
+
+Applies when the skill runs on a schedule and no pattern or component was
+named. If one was named, analyze it and skip this section.
+
+There is no memory between runs. What is already handled comes from two places:
+earlier run threads in the Slack channel (each ends with a result record, see
+Step 8) and GitHub and Jira (Step 3). Read both before choosing.
+
+- **One fix per run.** At most one PR, for one root-cause mode. A pattern is a
+  symptom group and can hide several modes, so narrow the claim to one mode
+  after analysis. Report the other modes you found as new-mode candidates; later
+  runs pick them up because they stay uncovered.
+- **Selection.** Collect patterns (Step 1) and walk them in rank order, at most
+  5 deep. Skip a candidate when:
+  - Step 3 finds a valid fix in flight. That includes PRs this bot opened in
+    earlier runs; do not distinguish them from anyone else's.
+  - A recent thread (default: the last 7 days) records a non-PR outcome for it
+    (not code-fixable, inconclusive, platform escalation, covered), unless the
+    pattern's rate or signature changed materially or the recorded reopen
+    condition is met.
+
+  Analyze the first candidate that remains. If none remains, post the status and
+  open no PR.
+- **Stale or closed PRs.** A stale PR of this bot stays claimed; opening a second
+  one for the same cause creates duplicates. Flag it in the report for a human.
+  A PR closed without merging is a human rejection: read the closure reason
+  before the pattern goes back in the pool.
+- **Merged PRs.** A pattern that still ranks high after a merge goes through
+  the merged-PR signal in Step 3, then the recurrence checks in Step 5.
+- **PR budget.** If told the number of open PRs has reached its limit, open no
+  PR. Post the status instead, listing the open PRs and flagging stale ones.
 
 ## Step 1: Gather failure data
 
@@ -113,7 +146,40 @@ Rules that keep conclusions honest:
 - A statistical argument (rate, interleaved successes) can support a
   classification. State the numbers and mark it as supported-by-rate, not proven.
 
-## Step 3: Investigate
+## Step 3: Is a fix already in flight?
+
+Before investigating in depth, find out whether a PR or Jira already proposes a
+valid fix for this pattern. Steps 1 and 2 give you what you need to search: the
+canonical error text, the failing step and component, and the first-seen time.
+Searches are read-only (commands in reference.md). If GitHub or Jira cannot be
+queried from your environment, say the check was not done and give the searches
+a human can run.
+
+Search merged and open PRs, in ARO-HCP and also in ARO-Tools and
+openshift/release when the failing layer lives there, and Jira. Use the error
+text, the failing step, and the component paths.
+
+| Signal | Meaning |
+|---|---|
+| Merged PR after first-seen | Check that the failing runs actually contain it (merge time against each run's SHA, and any image or config bump that has to land first). Then check recurrence (Step 5). |
+| Open PR with code on the failing path, recent activity, mergeable | A fix is in flight. |
+| Draft, stale, conflicting, or abandoned PR | A weak signal. |
+| Jira with a linked PR | Follow the PR. |
+| Jira with only discussion, or none | Not a fix. Link it, but do not defer to it. |
+
+For this first pass, a valid fix changes the code, script, or configuration that
+produced the failure, and is still alive. Whether it is adequate is decided in
+Step 5, when the root cause is known.
+
+- **Valid fix in flight:** do not rediscover the cause. Investigate (Step 4) to
+  validate the fix: does it reach the failing path (including whether the error
+  text still reaches the matcher it relies on), does it cover the whole class and
+  the observed failure sequence, and what does the evidence say about the cause
+  it assumes. You may propose a different fix if you conclude another approach
+  fits better. Say why, relative to the existing PR.
+- **No fix, or only a weak signal:** investigate normally.
+
+## Step 4: Investigate
 
 ### Principles
 
@@ -265,7 +331,7 @@ state, events, correlation IDs, resolver and route state for network failures,
 relevant Kubernetes events and workload logs, and retry counts and elapsed time.
 It must survive a frozen node and teardown.
 
-## Step 4: Scope, existing work, and recurrence
+## Step 5: Scope, existing work, and recurrence
 
 - **Frequency:** count distinct affected runs against all runs and provision-failed runs.
 - **Consistency:** compare error, stage, duration, region, and subscription.
@@ -273,13 +339,17 @@ It must survive a frozen node and teardown.
   or known flake, with per-run counts. "Known flake" requires an existing ticket or
   fix. State whether the failure is deterministic or intermittent, including the
   PR's own run.
-- **Existing work:** search merged and open PRs and Jira (read-only) for the
-  component and error. If a mitigation was merged, check whether it **engaged**:
-  failure duration against its backoff schedule, repeated attempts in the logs,
-  and whether the error text reaches the matcher it relies on. State why the
-  earlier mitigation did not stop the pattern. Read the PR that introduced a
-  failing guard or cleanup job and its original goal before proposing to patch
-  or disable it.
+- **Verdict on existing work:** for each candidate PR from Step 3, with the root
+  cause now known, decide whether it is adequate, adequate with defects, not a
+  fix, or stale. Ask: same root cause as the one established here? Does the
+  change engage the failing path? Does it fix the owning layer and the whole
+  class? Does it leave persistent environments unchanged? What are its own
+  verification and CI state, and how fresh is it?
+- **Did a merged mitigation engage?** Check failure duration against its backoff
+  schedule, repeated attempts in the logs, and whether the error text reaches
+  the matcher it relies on. State why the earlier mitigation did not stop the
+  pattern. Read the PR that introduced a failing guard or cleanup job and its
+  original goal before proposing to patch or disable it.
 - **Is it already solved?** Recompute the same pattern over a window starting at
   the merge time. Report completed post-merge runs, the occurrence count
   (explicit zero when zero), and the expected count at the pre-fix rate. Zero on
@@ -292,7 +362,7 @@ It must survive a frozen node and teardown.
   (successes and failures).
 - **Region test:** use another region only as a controlled experiment.
 
-## Step 5: Escalate platform-level errors
+## Step 6: Escalate platform-level errors
 
 Escalate when evidence shows a persistent, intermittent failure in a specific
 Azure resource provider or platform path and code-level mitigations are
@@ -314,7 +384,7 @@ a self-contained hand-off request (environment, region, cluster, job, UTC window
 exact queries, report format) and make no conclusion about them until the reply.
 Never assume an ephemeral resource can be inspected later.
 
-## Step 6: Propose solutions
+## Step 7: Propose solutions
 
 Propose; do not apply. Skip this step if the evidence is insufficient: say what
 evidence is missing instead.
@@ -345,7 +415,7 @@ evidence is missing instead.
   diffing rendered output, or running the check. For Bicep, parameter, values, or
   pipeline changes use the `check-ev2-render` skill.
 
-## Step 7: Output
+## Step 8: Output
 
 Structure findings as:
 
@@ -355,6 +425,8 @@ Structure findings as:
   `origin/main` SHA read.
 - **Unknowns** — what the evidence cannot establish, and **what you did not examine**.
 - **Scope** — frequency, affected components, regions, effective coverage window.
+- **Existing work** — PRs and Jira found in Step 3 with the Step 5 verdict, and
+  whether you propose a different approach and why.
 - **Proposed solutions** — immediate mitigation, diagnostics, durable fix, with the
   alternatives you rejected.
 - **Effort versus impact** — quick wins, without overstating certainty.
@@ -362,3 +434,15 @@ Structure findings as:
 - **New failure-mode candidates** — any mode that matched nothing in
   failure-modes.md: signature, evidence, how it was separated, and the query that
   finds it again.
+
+In unattended runs, end the report with a result record so a later run can read
+it from the thread:
+
+```text
+signature:  <canonical error text> | <failing step>
+pattern:    <key>, <n> runs, first/last seen
+outcome:    pr-opened | covered-by-existing | not-code-fixable | inconclusive | no-actionable-candidates
+link:       <PR or Jira, if any>
+as-of:      <UTC date>, <PR head SHA if any>
+reopen-when: <condition that would make a later run revisit it>
+```

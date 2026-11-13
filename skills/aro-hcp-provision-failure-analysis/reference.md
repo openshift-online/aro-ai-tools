@@ -270,3 +270,25 @@ cluster-level or node-bootstrap issue.
 - Do not add acceptance criteria or monitoring that depend on logs the team cannot query.
 - Sdp-pipelines CI, Azure DevOps/EV2 rollout state, and Azure Support cases are
   not reachable from this environment: say so rather than guess.
+
+## 7. Existing-work search (SKILL.md Step 3)
+
+Read-only. Add `ARO-Tools` and `openshift/release` when the failing layer lives
+there.
+
+```bash
+for R in Azure/ARO-HCP Azure/ARO-Tools openshift/release; do
+  gh pr list --repo "$R" --state all --search "<component or error text> in:title,body" --limit 30 \
+    --json number,title,state,isDraft,author,updatedAt,mergedAt,headRefName,url
+done
+gh pr view <n> --repo Azure/ARO-HCP \
+  --json title,state,isDraft,body,files,commits,reviews,comments,statusCheckRollup,headRefOid,mergeStateStatus
+git -C <worktree> log origin/main --since=<first_seen> --oneline -- <failing script, pipeline, or config paths>
+```
+
+- `updatedAt`, `mergeStateStatus`, and the `files` list tell you whether a PR is
+  alive and whether it touches the failing path.
+- Compare a merged PR's `mergedAt` with each failing run's `finished_at` and the
+  SHA that run used (`prowjob.json`).
+- Jira (project `AROSLSRE`, component `aro-hcp-ci`): search by error text through
+  the Atlassian tools. Read status, assignee, and linked PRs.
