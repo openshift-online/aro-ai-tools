@@ -21,9 +21,28 @@ is needed. Tables:
 
 Confirm columns with `| getschema`; re-confirm what is below when it matters.
 
-`rp-provision` is the RP deployed from main code (in `e2e-parallel` and
-`e2e-parallel-inplace-upgrade`). `rp-upgrade` is the RP upgraded from main to the
-PR code (only in `e2e-parallel-inplace-upgrade`). Both are in the queries below.
+Sources: `rp-provision` is the RP provisioned by the job's first provisioning
+step. In `e2e-parallel` that is the **PR's merge-checkout code**
+(`aro-hcp-provision-environment`); in `e2e-parallel-inplace-upgrade` it is the
+**main baseline** at the presubmit's `PULL_BASE_SHA`
+(`aro-hcp-provision-from-main`). `rp-upgrade` exists only in
+`e2e-parallel-inplace-upgrade`: the PR-side deployment run during the upgrade test
+(`aro-hcp-test-local-upgrade`). So the job name tells you which code a source
+exercised. (Source: `tooling/tenant-quota/README.md` and
+`tooling/tenant-quota/pkg/cijoboutcomes/rp_pipeline_artifacts.go`, checked on
+2026-11-13.) Image digests and deployment config are separate inputs: a base SHA
+does not prove that a mitigation is in the images that ran.
+
+**DEV scope.** `jobName has "e2e-parallel"` also matches INT, STG, and PROD jobs
+(`branch-ci-...-e2e-prod-e2e-parallel`, `periodic-...-prod-...`,
+`pull-ci-...-integration-e2e-parallel-all`). DEV is exactly four presubmit jobs
+(per `openshift/release` `Azure-ARO-HCP-main.yaml`, checked 2026-11-13):
+`pull-ci-Azure-ARO-HCP-main-e2e-parallel`, `...-e2e-parallel-inplace-upgrade`
+(deploy env `ci02`), `...-e2e-parallel-slow`, and `...-e2e-parallel-ocp-nightly`
+(the others use `ci01`). All queries below filter on this list.
+
+`ciJobOutcomes.failed` is true for both `FAILURE` and `ABORTED`. Use
+`overallResult` to tell them apart; an aborted run is not a provision failure.
 
 **Check the extractor version first.** Patterns are valid only per
 `(extractorVersion, resultSchemaVersion)`. Pin the version you use and record it
@@ -41,6 +60,8 @@ Recomputation can leave several rows per `resultKey`; keep the latest.
 **Shared prefix** (used by the queries below; `fp-1` was current on 2026-11-13):
 
 ```kql
+let devJobs = dynamic(["pull-ci-Azure-ARO-HCP-main-e2e-parallel", "pull-ci-Azure-ARO-HCP-main-e2e-parallel-inplace-upgrade",
+    "pull-ci-Azure-ARO-HCP-main-e2e-parallel-slow", "pull-ci-Azure-ARO-HCP-main-e2e-parallel-ocp-nightly"]);
 let selectedExtractorVersion = "fp-1";
 let selectedSchemaVersion = 1;
 let windowStart = ago(7d);
@@ -54,7 +75,7 @@ let patternRows = ciFailurePatterns
     | mv-expand finding = findings
     | extend key = tostring(finding.key), canonical = tostring(finding.canonical), outcome = tostring(finding.outcome)
     | join kind=inner failed on buildId, source, testId, messageHash
-    | join kind=inner (ciJobOutcomes | project buildId, jobName, prowUrl, jobFinished = finishedAt) on buildId
+    | join kind=inner (ciJobOutcomes | where jobName in (devJobs) | project buildId, jobName, prowUrl, jobFinished = finishedAt) on buildId
     | where jobFinished between (windowStart .. windowEnd);
 ```
 
@@ -86,16 +107,21 @@ patternRows
 **Failed runs without an `rp-provision` or `rp-upgrade` observation (coverage gap):**
 
 ```kql
+let devJobs = dynamic(["pull-ci-Azure-ARO-HCP-main-e2e-parallel", "pull-ci-Azure-ARO-HCP-main-e2e-parallel-inplace-upgrade",
+    "pull-ci-Azure-ARO-HCP-main-e2e-parallel-slow", "pull-ci-Azure-ARO-HCP-main-e2e-parallel-ocp-nightly"]);
 let rp = ciTestResults | where source in ("rp-provision", "rp-upgrade") | distinct buildId;
 ciJobOutcomes
-| where finishedAt between (ago(7d) .. now() - 5m) and jobName has "e2e-parallel" and failed
+| where finishedAt between (ago(7d) .. now() - 5m) and jobName in (devJobs) and failed
 | join kind=leftanti rp on buildId
-| project buildId, jobName, finishedAt, prowUrl
+| summarize runs = count(), sampleBuilds = make_set(buildId, 3) by jobName, overallResult
 ```
 
-On 2026-11-13, 47 of 175 failed `pull-ci-...-e2e-parallel` runs in the 7-day
-window had no `rp-*` observation. They are not in any pattern count; look at
-them separately.
+Most of these are `ABORTED` runs (interrupted or superseded, often before
+provisioning). Report them as counts by `overallResult` and by last phase reached,
+not one by one, and do not count them as provision failures. Look individually only
+at the `FAILURE` ones: they are few and can be real CI-infrastructure failures
+(for example a lease pod that never starts). On 2026-11-13, 95 of 98 such runs in a
+7-day window were `ABORTED`.
 
 **Effective coverage start per source:**
 `ciTestResults | where source in ("rp-provision","rp-upgrade") | summarize coverageStart = min(startedAt) by source`.
@@ -106,9 +132,11 @@ no `rp-*` rows.
 merge time (UTC), and count completed and failed runs after it:
 
 ```kql
+let devJobs = dynamic(["pull-ci-Azure-ARO-HCP-main-e2e-parallel", "pull-ci-Azure-ARO-HCP-main-e2e-parallel-inplace-upgrade",
+    "pull-ci-Azure-ARO-HCP-main-e2e-parallel-slow", "pull-ci-Azure-ARO-HCP-main-e2e-parallel-ocp-nightly"]);
 ciJobOutcomes
-| where finishedAt between (datetime(<merge time UTC>) .. now() - 5m) and jobName has "e2e-parallel"
-| summarize completed = count(), failed = countif(failed)
+| where finishedAt between (datetime(<merge time UTC>) .. now() - 5m) and jobName in (devJobs)
+| summarize completed = count(), failed = countif(overallResult == "FAILURE"), aborted = countif(overallResult == "ABORTED")
 ```
 
 Expected post-merge count = (pattern runs ÷ completed runs before the fix) ×
@@ -129,17 +157,21 @@ ciJobOutcomes
 | project buildId, jobName, svcCluster, mgmtCluster, startedAt, finishedAt
 ```
 
-- Names are stored verbatim from the run's own `config.yaml`; no parsing needed.
-- Only some runs carry names. On 2026-11-13, 293 of 320 `pull-ci-...-e2e-parallel`
-  runs in the 7-day window had them (like `ci01-j4374016-svc` and
-  `ci01-j4374016-mgmt-1`: `j` plus the last 7 digits of the build ID), but none
-  of the 246 `e2e-parallel-inplace-upgrade` runs did. Runs against a promoted
-  environment also leave both columns empty. For an empty run no name is
-  recorded; a `kubernetesEvents` search by the build-ID convention found nothing
-  for two such runs, so do not assume their telemetry exists.
+- Names come from the run's own `config.yaml`; no parsing needed.
+- `e2e-parallel` runs carry names in `svcCluster`/`mgmtCluster` (293 of 320 in
+  the 7 days to 2026-11-13), like `ci01-j4374016-svc` and `ci01-j4374016-mgmt-1`:
+  deploy env, `j`, and the last 7 digits of the build ID.
+- `e2e-parallel-inplace-upgrade` runs have **empty** cluster columns, but their
+  clusters exist and follow the same convention with deploy env `ci02` (for
+  example `ci02-j4872704-svc`, resource group `hcp-underlay-ci02-j4872704-svc`,
+  seen in `kubernetesEvents` and `aksEvents`). The names are recorded in the
+  baseline artifact `artifacts/e2e-parallel-inplace-upgrade/aro-hcp-provision-from-main/artifacts/config.yaml`.
+- Match cluster names exactly or with `contains`. `has` matches whole terms and
+  does not match a digit string inside `j4872704`.
 - `mgmtCluster` shows stamp 1. `e2e-parallel` also has a `-mgmt-2` cluster in
   `kubernetesEvents` under the same prefix; confirm before use.
-- Resource groups: `hcp-underlay-<cluster-name>` (confirm on a real run).
+- Runs against a promoted environment leave both columns empty and their
+  telemetry is elsewhere.
 
 ## 3. DEV pipeline structure
 
@@ -220,6 +252,23 @@ The gather log normally contains resource groups, ARM deployments, failed operat
 correlation IDs, durations, and statuses. Shell and Helm evidence may exist only in
 the failing step's `build-log.txt` or the observation text.
 
+Known evidence limits (checked 2026-11-13):
+
+- **The failure gather is skipped after a successful baseline.** The step
+  `ci-operator/step-registry/aro-hcp/gather/provision-failure` in
+  `openshift/release` exits at once with `Provisioning completed successfully,
+  skipping failure data gathering` when `provision-complete` or
+  `provision-from-main-complete` exists in `SHARED_DIR`. In
+  `e2e-parallel-inplace-upgrade` the baseline marker exists before the upgrade
+  runs, so an `rp-upgrade` failure gets no gather data. The message does not mean
+  the upgrade succeeded.
+- **A public artifact can be withheld yet return HTTP 200.** A step's
+  `build-log.txt` may read `This file contained potentially sensitive
+  information and has been removed.` Do not look for the content elsewhere; use
+  the JUnit, the other step logs, and Kusto.
+- The baseline JUnit of a passing step keeps no attempt logs. A passed step does
+  not prove that no retry or transient failure happened inside it.
+
 For batch analysis keep working files under `zz-ignore/provision-failures/<pattern-name>/`.
 
 ## 5. Kusto
@@ -234,7 +283,7 @@ relying on a column.
 | `containerLogs` | Workload stdout/stderr | `cluster`, `namespace_name`, `pod_name`, `container_name`, `log` |
 | `kubeAudit` | API server requests and responses | `resourceId`, `verb`, `requestURI`, `responseStatus` |
 | `systemdLogs` | Node services such as kubelet/containerd | `hostname`, `systemd_unit`, `message` |
-| `aksEvents` | AKS control-plane events | `resourceId`, `category`, `operationName` |
+| `aksEvents` | AKS control-plane diagnostics (no `cluster` column) | filter `resourceId endswith "/<cluster-name>"`; `category`, `operationName`, `log` |
 | `ciJobOutcomes`, `ciTestResults` | CI run and test outcomes | see section 1 |
 
 ### Telemetry pitfalls
@@ -251,6 +300,11 @@ relying on a column.
   request). Report P50/P90/P95/P99/max, split affected against unaffected.
 - Kusto lags ingestion by minutes: do not judge a window that ends now.
 - Publish the corrected final query, not the first draft.
+- `has` matches whole terms: `cluster has "4872704"` finds nothing in
+  `ci02-j4872704-svc`. Use `contains`, `startswith`, or the exact name.
+- Zero rows for a correlation ID is a successful query, not proof the event did
+  not happen: `aksEvents` holds Kubernetes control-plane logs, not ARM deployment
+  operations.
 - The Sippy jobs endpoint, if used for job volume, omits aborted runs.
 
 ### Queries
@@ -284,7 +338,7 @@ attributing an event pattern to a failure):
 ```kql
 kubernetesEvents
 | where timestamp between (datetime(<start>) .. datetime(<end>))
-| where cluster has "ci01" and reason == "<reason>"
+| where cluster startswith "ci0" and reason == "<reason>"
 | summarize affected_events=count() by cluster
 | order by affected_events desc
 ```

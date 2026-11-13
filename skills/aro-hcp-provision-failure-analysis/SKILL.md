@@ -72,6 +72,11 @@ Collect patterns (Step 1), walk them in rank order, at most 5 deep, and skip the
 handled ones. Analyze the first that remains. If none remains, report that and
 open no PR.
 
+If the first remaining candidate ends in `inconclusive` only because the evidence
+that would explain it is missing, and a diagnostics change is possible (Step 7),
+that change is this run's fix. If no diagnostics change is possible, record the
+candidate and take the next one, within the depth limit.
+
 - **Stale or closed PRs.** A stale PR of this bot stays claimed; opening a second
   one for the same cause creates duplicates. Flag it for a human. A PR closed
   without merging is a human rejection: read the closure reason before the
@@ -86,17 +91,21 @@ open no PR.
 Pull failure patterns for the relevant UTC window. A pattern is a **symptom
 group, not a root cause**; pattern counts overlap and must not be added.
 
-1. **State the effective coverage window.** Provision failures are reported by
-   two kinds of observation:
-   - `rp-provision`: the RP deployed from main code. It occurs in `e2e-parallel`
-     and also in `e2e-parallel-inplace-upgrade`.
-   - `rp-upgrade`: the RP upgraded from main code to the PR code. It occurs
-     only in `e2e-parallel-inplace-upgrade`, so it exercises the PR's changes.
+1. **Scope to DEV and state the effective coverage window.** A name match on
+   `e2e-parallel` also catches INT, STG, and PROD jobs; use the DEV job list in
+   reference.md §1. Provision failures are reported by two kinds of observation,
+   and which code each exercised depends on the job:
+   - `rp-provision`: the job's first provisioning step. It is the PR's code in
+     `e2e-parallel` and the main baseline in `e2e-parallel-inplace-upgrade`.
+   - `rp-upgrade`: only in `e2e-parallel-inplace-upgrade`; the PR-side deployment
+     during the upgrade test, so it exercises the PR's changes.
 
    Observations exist only for runs ingested after the collector rollout
    (forward-only, no backfill). Failed runs with no observation of either kind
-   are *unclassified*: classify each from its Prow artifacts by first failing
-   step. Coverage gaps are findings, not tool defects.
+   are *unclassified*. Most are `ABORTED` (interrupted or superseded): report them
+   as counts by `overallResult` and last phase reached; do not list them one by
+   one or count them as provision failures. Read individually only the
+   `FAILURE` ones. Coverage gaps are findings, not tool defects.
 2. **Use settled windows.** End the window at least 5 minutes before now
    (ingestion lag). Treat an unfinished day as provisional.
 3. For each affected run record: job ID, job family (presubmit / periodic /
@@ -105,9 +114,12 @@ group, not a root cause**; pattern counts overlap and must not be added.
 4. Keep the observation text. Shell and Helm failures often carry their
    decisive evidence there and not in the gather build log.
 5. Get cluster names from Kusto `ciJobOutcomes` (`svcCluster`, `mgmtCluster`,
-   joined on `buildId`), not by deriving them from the job ID. Limits: only some
-   runs have names (none of the `e2e-parallel-inplace-upgrade` runs checked did);
-   `mgmtCluster` shows stamp 1 even though `e2e-parallel` has stamps 1 and 2.
+   joined on `buildId`). `e2e-parallel-inplace-upgrade` rows have empty names, but
+   the clusters exist: they follow the same convention with deploy env `ci02`, and
+   the baseline config artifact records them (reference.md §2). An empty name
+   column, or a search that returns nothing, is not evidence that telemetry is
+   missing: check the exact name first. `mgmtCluster` shows stamp 1 even though
+   `e2e-parallel` has stamps 1 and 2.
 6. When comparing runs, separate jobs on current `main` from stale PR revisions
    that predate an existing mitigation.
 
@@ -244,6 +256,15 @@ ones the evidence makes relevant.
 11. **Check telemetry before trusting it.** Kusto counts and timings can mislead
     (see reference.md "Telemetry pitfalls"). Sanity-check populations and which
     timestamp you are using.
+12. **Missing evidence is a finding.** When the decisive evidence (the nested
+    provider error, the deployment name or ID, operation details, the attempt
+    history) is absent, find out why before calling it unknown. Trace where the
+    error text is built and wrapped, whether detail callbacks are dropped on that
+    path, whether a gather or failure handler is skipped for the failing phase,
+    and which logs are withheld. A generic code such as `DeploymentFailed` with no
+    detail code means detail was lost, not that the cause is generic. If the loss
+    is in code or CI configuration we own, it is a defect to fix (Step 7), not
+    only a limitation to report.
 
 ### When nothing matches
 
@@ -337,7 +358,9 @@ pre-teardown gather step that is failure-triggered and read-only, capturing only
 non-secret diagnostics: exact stderr and timestamps, resource IDs, provisioning
 state, events, correlation IDs, resolver and route state for network failures,
 relevant Kubernetes events and workload logs, and retry counts and elapsed time.
-It must survive a frozen node and teardown.
+It must survive a frozen node and teardown. Before proposing a new gather step,
+read the trigger conditions of the existing ones: the missing capture is often a
+step that does not fire for the failing phase.
 
 ## Step 5: Scope, existing work, and recurrence
 
@@ -394,8 +417,20 @@ Never assume an ephemeral resource can be inspected later.
 
 ## Step 7: Propose solutions
 
-Propose; do not apply. Skip this step if the evidence is insufficient: say what
-evidence is missing instead.
+Propose; do not apply. If the root cause cannot be established because the
+evidence is missing, do not stop at "inconclusive" and do not propose a
+speculative mitigation: propose the diagnostics change below. Use `inconclusive`
+only when no such change is possible.
+
+- **Diagnostics change.** When the pipeline loses or never captures the evidence
+  that would decide the cause, the fix is to capture it. Change the point of loss:
+  propagate the nested error or operation details, or extend the gather or
+  failure-handler condition to cover the failing phase. Keep any new capture
+  failure-triggered, read-only, non-secret, and DEV-only. State which unknown each
+  addition answers and what a later run will show. Verify without cloud writes
+  (error-propagation test, rendered diff, dry run). Never change an error string
+  that `automatedRetry` matches. It is not a mitigation: say so, and say what to
+  check after it ships.
 
 - **Fix at the layer that owns the defect.** If the current layer cannot express
   the needed behavior, fix the layer that can, instead of adding retry entries
@@ -425,7 +460,10 @@ evidence is missing instead.
 
 ## Step 8: Output
 
-Structure findings as:
+Write the report to be read, not to be audited: lead with the conclusion, state
+each caveat once where it applies, and give a query and counts instead of
+listing a population the query reproduces. Keep per-run inventories to the runs
+that matter. Structure findings as:
 
 - **Opening** — what the failing step does and where it sits in `dependsOn`.
 - **Observed root cause/classification** — evidence only.
@@ -449,7 +487,7 @@ its run history; for a local agent it is a summary the human can reuse:
 ```text
 signature:  <canonical error text> | <failing step>
 pattern:    <key>, <n> runs, first/last seen
-outcome:    pr-opened | covered-by-existing | not-code-fixable | inconclusive | no-actionable-candidates
+outcome:    pr-opened (fix or diagnostics change) | covered-by-existing | not-code-fixable | inconclusive | no-actionable-candidates
 link:       <PR or Jira, if any>
 as-of:      <UTC date>, <PR head SHA if any>
 reopen-when: <condition that would make a later run revisit it>

@@ -171,6 +171,13 @@ diagnostic in the Helm failure path that records status and timing only (never t
 **How to separate it:** check whether the end state converged and whether the e2e measures an SLO budget.
 **Cautions:** the likely fix is test-side (headroom, timeout, final GET), not a product-code change. Do not generalize beyond SLO-type tests.
 
+## Generic error with the nested detail lost (seen once)
+
+**Signature:** `ERROR CODE: DeploymentFailed` with no detail code or provider, wrapped as `failed to poll previously-existing deployment: pre-existing deployment failed`, on `rp-upgrade` in `e2e-parallel-inplace-upgrade` (24 runs over 4 days, 2026-11). The step failed 1–3 seconds after it started, and the preceding cluster-create step had succeeded.
+**What it was:** the original failure was not recoverable from the evidence. In `tooling/templatize/pkg/pipeline/arm.go`, the rejected-state path of `pollAndGetOutputFromExistingDeployment` returns nil operation details and the caller returns nil too, so `run.go` has nothing to collect. The failure gather (`openshift/release` step `aro-hcp-gather-provision-failure`) exits early when the baseline's `provision-from-main-complete` marker exists, so the upgrade's failure got no gather data either. The ARM provisioning state and the nested provider error are in neither Kusto nor the Prow artifacts. Whether the 24 runs share one cause was unknown.
+**How to separate it:** pair the wrapper text with the step's duration, the preceding step's outcome, the nearest successful run of the same job, and a read of the source that builds the error (is the nested error or the details callback dropped?). Do not pick a retry or timeout from the generic code; a fast terminal rejection is not helped by a longer timeout.
+**Cautions:** the right outcome here is a diagnostics change at the points of loss (propagate details on the error path, extend the gather condition to the upgrade phase), not a mitigation and not `inconclusive`. After it ships, re-read the next occurrences to see the real provider error.
+
 ## Reading across the notes
 
 Things that recur: an early error hidden by later fallout; one message covering several causes; a
