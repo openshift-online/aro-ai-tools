@@ -161,7 +161,7 @@ diagnostic in the Helm failure path that records status and timing only (never t
 ## Regression spike attributed to a merged PR
 
 **Signature:** a pattern spiking in one window (for example `cluster deletion did not complete before the deadline`, a teardown failure) with a suspect PR.
-**How to separate it:** first only onset, recurrence, and PR-metadata correlation. Do not name a PR from timing and PR text alone. Then trace code. Then use `hcpctl snapshot from-prow-job` on 2 or 3 runs (earliest onset, the suspect PR's pre-merge run, a post-merge spike run) and count distinct runs and distinct PRs to separate a shared regression from a PR-specific bug.
+**How to separate it:** first only onset, recurrence, and PR-metadata correlation. Do not name a PR from timing and PR text alone. Then trace code. Then read the step logs (`ciTestResults.message`) of 2 or 3 runs (earliest onset, the suspect PR's pre-merge run, a post-merge spike run) and count distinct runs and distinct PRs to separate a shared regression from a PR-specific bug.
 **Cautions:** consider a human review checkpoint before the code trace.
 
 ## Controller re-reconcile in an SLO-style e2e (seen once, low confidence)

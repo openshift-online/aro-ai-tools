@@ -5,98 +5,121 @@ with what you observe, trust the observation and say so in the report.
 
 ## 1. Collecting failure patterns
 
-`hcpctl ci failure-patterns` is introduced by Azure/ARO-HCP#7945. Until it is
-merged, build it from a worktree of that PR's branch
-(`HCPCTL="go run ./tooling/hcpctl"`). Confirm flags with `--help` first. After
-merge, use the released `hcpctl`. Record the CLI version and the report's
-`extractor_version` in the findings.
+Read pre-computed failure patterns straight from Kusto (`ServiceLogs`); no CLI
+is needed. Tables:
 
-```bash
-RUN_DIR="<scratch>/provision-triage-$(date -u +%Y%m%dT%H%M%SZ)"; mkdir -m 700 "$RUN_DIR"
-TO=$(date -u -d '-5 min' +%Y-%m-%dT%H:%M:00Z)      # settled window
-FROM=$(date -u -d "$TO -7 days" +%Y-%m-%dT%H:%M:00Z)
-$HCPCTL ci failure-patterns --kusto hcp-dev-us-2 --region eastus2 --database ServiceLogs \
-  --environment dev --source rp-provision --job-filter e2e-parallel \
-  --from "$FROM" --to "$TO" --timeout 10m \
-  --save-input "$RUN_DIR/bundle.json" > "$RUN_DIR/report.json" 2> "$RUN_DIR/collect.stderr"
+- `ciJobOutcomes`: one row per Prow run (`buildId, jobName, prowUrl, family,
+  overallResult, failed, startedAt, finishedAt, svcCluster, mgmtCluster,
+  runtimeRegion, ...`).
+- `ciTestResults`: per-test outcomes joined on `buildId`. `source` is `e2e`,
+  `observability`, `rp-provision`, or `rp-upgrade`. `rp-*` rows are one test per
+  pipeline step, passed steps included, with step execution times. `message`
+  holds the raw step log.
+- `ciFailurePatterns`: one row per extracted result, with `findings` (a dynamic
+  array: `key, canonical, outcome, rule_id, quality_reasons, locations`). It
+  stores no raw text; join it to `ciTestResults` for `message` and timings.
+
+Confirm columns with `| getschema`; re-confirm what is below when it matters.
+
+`rp-provision` is the RP deployed from main code (in `e2e-parallel` and
+`e2e-parallel-inplace-upgrade`). `rp-upgrade` is the RP upgraded from main to the
+PR code (only in `e2e-parallel-inplace-upgrade`). Both are in the queries below.
+
+**Check the extractor version first.** Patterns are valid only per
+`(extractorVersion, resultSchemaVersion)`. Pin the version you use and record it
+in the findings:
+
+```kql
+ciFailurePatterns
+| summarize rows=count(), builds=dcount(buildId), firstComputed=min(computedAt), lastComputed=max(computedAt)
+  by extractorVersion, resultSchemaVersion, source
 ```
 
-`--save-input` refuses to overwrite, so use a fresh `RUN_DIR`. Output is JSON.
-A saved bundle replays offline with `--input bundle.json`.
+Rows with an empty `source` are an older backfill; do not guess them into one.
+Recomputation can leave several rows per `resultKey`; keep the latest.
 
-Provision failures come from two observation sources. `--source rp-provision` is
-the RP deployed from main code (in `e2e-parallel` and in
-`e2e-parallel-inplace-upgrade`). `--source rp-upgrade` is the RP upgraded from
-main code to the PR code (only in `e2e-parallel-inplace-upgrade`). Run the
-collection once per source. Check with `--help` how `--job-filter` matches, so
-that the filter covers the jobs you intend.
+**Shared prefix** (used by the queries below; `fp-1` was current on 2026-11-13):
 
-- Check that the command exited 0 and that `summary.input_count == (.results|length)`
-  and `metadata.window` equals what you requested. A query or partial failure is a
-  collection problem: retry once, then report it. Never analyze a partial bundle.
-- Report: `patterns[]` (`environment, source, key, canonical, affected_run_count,
-  affected_input_count, result_indexes`) ranked by affected runs, and `results[]`
-  (`observation`, `findings[]`). `result_indexes` are valid only inside that
-  report. `key` is not unique across `(environment, source)`: always match on all three.
-- Bundle: `runs[]` (`build_id, job_name, prow_url, finished_at, failed`) and
-  `observations[]` (`build_id, source, test_name, text, started_at, finished_at`).
-
-`$REPORT` = `$RUN_DIR/report.json`, `$BUNDLE` = `$RUN_DIR/bundle.json`.
-
-**Top patterns with first/last seen:**
-
-```bash
-jq '. as $r | [.patterns[] | select(.environment=="dev" and .source=="rp-provision")] | .[0:5]
-  | map(. as $p | [$p.result_indexes[] | $r.results[.].observation] as $o
-    | {key:$p.key, canonical:($p.canonical[0:90]), runs:$p.affected_run_count, inputs:$p.affected_input_count,
-       first_seen:([$o[].finished_at]|min), last_seen:([$o[].finished_at]|max),
-       sample_builds:([$o[].build_id]|unique|.[0:3])})' "$REPORT"
+```kql
+let selectedExtractorVersion = "fp-1";
+let selectedSchemaVersion = 1;
+let windowStart = ago(7d);
+let windowEnd = now() - 5m;     // Kusto lags ingestion: do not judge a window that ends now
+let failed = ciTestResults
+    | where failed and source in ("rp-provision", "rp-upgrade")
+    | extend messageHash = hash_sha256(message);
+let patternRows = ciFailurePatterns
+    | where extractorVersion == selectedExtractorVersion and resultSchemaVersion == selectedSchemaVersion
+    | summarize arg_max(computedAt, *) by resultKey
+    | mv-expand finding = findings
+    | extend key = tostring(finding.key), canonical = tostring(finding.canonical), outcome = tostring(finding.outcome)
+    | join kind=inner failed on buildId, source, testId, messageHash
+    | join kind=inner (ciJobOutcomes | project buildId, jobName, prowUrl, jobFinished = finishedAt) on buildId
+    | where jobFinished between (windowStart .. windowEnd);
 ```
 
-**Occurrences of one pattern (index `i`):**
+`key` is not unique across sources: always match on `source` and `key`. A run
+can have several failing observations, so count runs with `dcount(buildId)` and
+occurrences with `count()`. A `fallback` outcome means no specific rule matched
+(a coarse key); treat it as weaker grouping.
 
-```bash
-jq --argjson i 0 '.patterns[$i] as $p | [ $p.result_indexes[] as $x | .results[$x]
-  | {build_id:.observation.build_id, test:.observation.test_name, text:(.observation.text[0:300]),
-     findings:[.findings[]|select(.key==$p.key)|{rule_id,outcome}]} ]' "$REPORT"
+**Top patterns with first/last seen** (append to the prefix):
+
+```kql
+patternRows
+| summarize runs = dcount(buildId), inputs = count(), firstSeen = min(jobFinished), lastSeen = max(jobFinished),
+            sampleBuilds = make_set(buildId, 3), canonical = take_any(canonical), outcomes = make_set(outcome)
+    by source, key
+| order by runs desc, inputs desc
+| take 10
+```
+
+**Occurrences of one pattern** (append to the prefix):
+
+```kql
+patternRows
+| where source == "<source>" and key == "<key>"
+| project buildId, jobName, jobFinished, prowUrl, testName, message = substring(message, 0, 300)
+| order by jobFinished desc
 ```
 
 **Failed runs without an `rp-provision` or `rp-upgrade` observation (coverage gap):**
 
-```bash
-jq '(.observations|map(select(.source|startswith("rp-")).build_id)|unique) as $has
-  | [.runs[]|select(.failed and ((.build_id as $b|$has|index($b))==null))|{build_id,job_name,finished_at,prow_url}]' "$BUNDLE"
+```kql
+let rp = ciTestResults | where source in ("rp-provision", "rp-upgrade") | distinct buildId;
+ciJobOutcomes
+| where finishedAt between (ago(7d) .. now() - 5m) and jobName has "e2e-parallel" and failed
+| join kind=leftanti rp on buildId
+| project buildId, jobName, finishedAt, prowUrl
 ```
+
+On 2026-11-13, 47 of 175 failed `pull-ci-...-e2e-parallel` runs in the 7-day
+window had no `rp-*` observation. They are not in any pattern count; look at
+them separately.
 
 **Effective coverage start per source:**
-`jq '[.observations[]|select(.source|startswith("rp-"))] | group_by(.source) | map({source:.[0].source, start:(map(.started_at)|min)})' "$BUNDLE"`.
-The collector writes forward-only from its rollout (about 2026-11-03 10:26 UTC);
-older rows have an empty `source` and must not be guessed into one.
+`ciTestResults | where source in ("rp-provision","rp-upgrade") | summarize coverageStart = min(startedAt) by source`.
+Collection is forward-only from its rollout (about 2026-11-03); earlier runs have
+no `rp-*` rows.
 
-**Post-merge recompute:** repeat the collection into a new `RUN_DIR2` with
-`--from <merge time UTC>`, then:
+**Post-merge recompute:** rerun the pattern query with `windowStart` set to the
+merge time (UTC), and count completed and failed runs after it:
 
-```bash
-jq --arg k "$KEY" '[.patterns[]|select(.environment=="dev" and .source=="rp-provision" and .key==$k)]
-  | if length==0 then {occurrences:0} else {occurrences:.[0].affected_input_count, runs:.[0].affected_run_count} end' "$RUN_DIR2/report.json"
-jq '[.runs[]|select(.finished_at>="<cutoff>")]|{completed:length, failed:(map(select(.failed))|length)}' "$RUN_DIR2/bundle.json"
+```kql
+ciJobOutcomes
+| where finishedAt between (datetime(<merge time UTC>) .. now() - 5m) and jobName has "e2e-parallel"
+| summarize completed = count(), failed = countif(failed)
 ```
 
-Completed post-merge runs come from `runs[]`, not from the pattern. Expected
-post-merge count = (pattern runs ÷ completed runs before the fix) × completed
-runs after it.
+Expected post-merge count = (pattern runs ÷ completed runs before the fix) ×
+completed runs after it.
 
-**Per-run drill-down:** `$HCPCTL snapshot from-prow-job --url <prow job url> [--test <substring>]`.
-Non-PR (EV2-triggered) jobs also need `--sdp-pipelines-dir <checkout>`. Do not
-use `snapshot analyze`; it calls a nested AI provider.
+**Per-run drill-down:** `ciTestResults | where buildId == "<id>" and source in
+("rp-provision","rp-upgrade") | project testId, result, failed, startedAt,
+finishedAt, message` gives step outcomes, step times, and the raw log. For other
+evidence use the Prow artifacts (section 4).
 
-Other CI outcome data is in Kusto (`ServiceLogs`): `ciJobOutcomes` (one row per
-Prow run: `buildId, jobName, prowUrl, family, overallResult, failed, startedAt,
-finishedAt, svcCluster, mgmtCluster, runtimeRegion, ...`) and `ciTestResults`
-(per-test outcomes joined on `buildId`; `source` is `e2e`, `observability`,
-`rp-provision`, or `rp-upgrade`; `rp-*` rows are one test per pipeline step,
-passed steps included, with step execution times). Confirm columns with
-`| getschema`.
+Other `ciTestResults`/`ciJobOutcomes` columns and joins: confirm with `| getschema`.
 
 ## 2. Clusters for a run
 
@@ -107,11 +130,15 @@ ciJobOutcomes
 ```
 
 - Names are stored verbatim from the run's own `config.yaml`; no parsing needed.
-- Only runs that provision their own clusters carry names. Runs against a promoted
-  environment leave both columns empty (their telemetry is elsewhere).
-- `mgmtCluster` always shows stamp 1. `e2e-parallel` has stamps 1 and 2;
-  `e2e-parallel-inplace-upgrade` has only stamp 1. For stamp 2, take the stamp-1
-  name's pattern and confirm it exists in `kubernetesEvents` before use.
+- Only some runs carry names. On 2026-11-13, 293 of 320 `pull-ci-...-e2e-parallel`
+  runs in the 7-day window had them (like `ci01-j4374016-svc` and
+  `ci01-j4374016-mgmt-1`: `j` plus the last 7 digits of the build ID), but none
+  of the 246 `e2e-parallel-inplace-upgrade` runs did. Runs against a promoted
+  environment also leave both columns empty. For an empty run no name is
+  recorded; a `kubernetesEvents` search by the build-ID convention found nothing
+  for two such runs, so do not assume their telemetry exists.
+- `mgmtCluster` shows stamp 1. `e2e-parallel` also has a `-mgmt-2` cluster in
+  `kubernetesEvents` under the same prefix; confirm before use.
 - Resource groups: `hcp-underlay-<cluster-name>` (confirm on a real run).
 
 ## 3. DEV pipeline structure
@@ -203,7 +230,7 @@ relying on a column.
 
 | Table | Evidence | Common columns |
 |---|---|---|
-| `kubernetesEvents` | Kubernetes warnings and state changes | `cluster`, `reason`, `message`, `eventNamespace`, `objectName`, `kubeEventType` |
+| `kubernetesEvents` | Kubernetes events | `cluster`, `reason`, `message`, `eventNamespace`, `objectKind`, `objectName`, `objectUID`, `firstSeen`, `lastSeen`, `count` |
 | `containerLogs` | Workload stdout/stderr | `cluster`, `namespace_name`, `pod_name`, `container_name`, `log` |
 | `kubeAudit` | API server requests and responses | `resourceId`, `verb`, `requestURI`, `responseStatus` |
 | `systemdLogs` | Node services such as kubelet/containerd | `hostname`, `systemd_unit`, `message` |
@@ -212,9 +239,13 @@ relying on a column.
 
 ### Telemetry pitfalls
 
-- For `kubernetesEvents`, occurrence time is `firstSeen`/`lastSeen` with `count`;
-  the ingestion `timestamp` is not when it happened. Dedupe by event UID:
-  `summarize arg_max(timestamp, *) by cluster, eventUID`.
+- `kubernetesEvents.kubeEventType` was empty on every DEV `ci01-*` row checked on
+  2026-11-13 (34M rows in 2 days): do not filter on `kubeEventType == "Warning"`;
+  filter on `reason`, `eventNamespace`, or `message`. There is no event-UID
+  column. Occurrence time is `firstSeen`/`lastSeen` with `count`; the ingestion
+  `timestamp` is not when it happened. One event is re-emitted with a growing
+  `count`; a working dedupe key is `cluster, objectUID, reason, firstSeen`:
+  `summarize arg_max(timestamp, *) by cluster, objectUID, reason, firstSeen`.
 - Sanity-check any count against what Kubernetes could produce.
 - Start a budget interval at the earliest moment the clock can start (the creation
   request). Report P50/P90/P95/P99/max, split affected against unaffected.
@@ -224,13 +255,14 @@ relying on a column.
 
 ### Queries
 
-Warning-event timeline (deduplicated):
+Event timeline for one cluster (deduplicated; add a `reason` or `message` filter
+to select warnings):
 
 ```kql
 kubernetesEvents
 | where timestamp between (datetime(<start>) .. datetime(<end>))
-| where cluster == "<cluster-name>" and kubeEventType == "Warning"
-| summarize arg_max(timestamp, *) by cluster, eventUID
+| where cluster == "<cluster-name>"
+| summarize arg_max(timestamp, *) by cluster, objectUID, reason, firstSeen
 | project firstSeen, lastSeen, count, reason, message, eventNamespace, objectName
 | order by firstSeen asc
 ```

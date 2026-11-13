@@ -28,8 +28,7 @@ under "what you did not examine" in the report.
 
 | Capability | If you have it | If you do not |
 |---|---|---|
-| Kusto (DEV `ServiceLogs`) | Use it through the `aro-kusto` skill. | Analyze from Prow artifacts and source only. Say that pod, node, and event evidence was not examined, and give the queries a human can run. |
-| `hcpctl` | Collect failure patterns with it (reference.md). | Query `ciJobOutcomes` and `ciTestResults` in Kusto directly and group by message. Patterns are then not normalized; say so. With neither, ask for the pattern or run URLs. |
+| Kusto (DEV `ServiceLogs`) | Use it through the `aro-kusto` skill. It holds the failure patterns too. | Analyze from Prow artifacts and source only. Say that pattern, pod, node, and event evidence was not examined, and give the queries a human can run. Ask for the pattern or run URLs. |
 | Azure read access (`az`, Activity Log) | Use read-only commands, after confirming they work. | Take evidence from Kusto and Prow only. For a check that needs Azure (Activity Log, SKU listings, quota), give the exact read-only command a human can run. |
 | GitHub read access | Run the Step 3 PR searches. | Ask the human for known PRs, or give the searches to run. State that the existing-fix check was not done. Do not assume nothing is in flight. |
 | Jira read access | Run the Step 3 Jira search. | Same as GitHub. |
@@ -39,8 +38,8 @@ under "what you did not examine" in the report.
 ## Prerequisites
 
 - `aro-kusto` skill, and ARO-HCP `docs/ai/kusto-debugging.md`, for every Kusto query.
-- `hcpctl ci failure-patterns` for failure patterns and run lists (commands in
-  reference.md).
+- Failure patterns come from Kusto tables `ciFailurePatterns`, `ciTestResults`, and
+  `ciJobOutcomes` (queries in reference.md). No CLI is required.
 - DEV Kusto: cluster `https://hcp-dev-us-2.eastus2.kusto.windows.net`, database
   `ServiceLogs`.
 
@@ -106,10 +105,9 @@ group, not a root cause**; pattern counts overlap and must not be added.
 4. Keep the observation text. Shell and Helm failures often carry their
    decisive evidence there and not in the gather build log.
 5. Get cluster names from Kusto `ciJobOutcomes` (`svcCluster`, `mgmtCluster`,
-   joined on `buildId`), not by deriving them from the job ID. Limits: only runs
-   that provision their own clusters have names; `mgmtCluster` always shows
-   stamp 1 even though `e2e-parallel` has stamps 1 and 2 (only
-   `e2e-parallel-inplace-upgrade` has a single stamp).
+   joined on `buildId`), not by deriving them from the job ID. Limits: only some
+   runs have names (none of the `e2e-parallel-inplace-upgrade` runs checked did);
+   `mgmtCluster` shows stamp 1 even though `e2e-parallel` has stamps 1 and 2.
 6. When comparing runs, separate jobs on current `main` from stale PR revisions
    that predate an existing mitigation.
 
